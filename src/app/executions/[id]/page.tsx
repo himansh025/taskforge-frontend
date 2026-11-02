@@ -117,6 +117,16 @@ export default function ExecutionViewPage({ params }: { params: { id: string } }
     }
   };
 
+  const handleRetry = async () => {
+    try {
+      await fetch(`/api/v1/executions/${params.id}/retry`, { method: "POST" });
+      setExecution((prev) => prev ? { ...prev, status: "RUNNING" } : null);
+      setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Manual retry triggered`]);
+    } catch (e) {
+      alert("Failed to retry execution");
+    }
+  };
+
   const isCompleted = execution?.status === "COMPLETED";
   const isFailed = execution?.status === "FAILED";
   const isCancelled = execution?.status === "CANCELLED";
@@ -186,6 +196,14 @@ export default function ExecutionViewPage({ params }: { params: { id: string } }
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-300 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 rounded-lg transition"
             >
               <Ban className="w-3.5 h-3.5" /> Cancel Execution
+            </button>
+          )}
+          {isFailed && (
+            <button
+              onClick={handleRetry}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-300 bg-amber-950/80 hover:bg-amber-900 border border-amber-800/80 rounded-lg transition"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Retry Execution
             </button>
           )}
           <Link
@@ -289,6 +307,32 @@ export default function ExecutionViewPage({ params }: { params: { id: string } }
               </pre>
             </div>
           </div>
+
+          {/* Generated Artifacts */}
+          {execution?.outputPayload && execution.outputPayload.includes("reportUrl") && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Generated Artifact</h3>
+              <a
+                href={(() => {
+                  try {
+                    const parsed = JSON.parse(execution.outputPayload);
+                    return parsed.reportUrl || "#";
+                  } catch (e) {
+                    return "#";
+                  }
+                })()}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between p-3 bg-emerald-950/40 border border-emerald-800/60 hover:bg-emerald-900/50 rounded-lg text-emerald-300 text-xs font-medium transition"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-400" />
+                  <span>Download Execution Report</span>
+                </div>
+                <span className="text-[10px] text-emerald-400 font-mono">MinIO S3</span>
+              </a>
+            </div>
+          )}
 
           {/* Real-Time Live Logs */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">

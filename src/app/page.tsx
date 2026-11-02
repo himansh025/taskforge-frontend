@@ -14,17 +14,16 @@ import {
   UploadCloud,
   FileText,
   Search,
-  Filter,
-  Layers,
-  Database,
-  Cpu,
   RefreshCw,
   ExternalLink,
   ChevronRight,
-  ShieldCheck,
-  RotateCcw,
-  Sparkles,
-  BarChart3
+  Server,
+  Layers,
+  HardDrive,
+  Copy,
+  Terminal,
+  Activity,
+  Sliders
 } from "lucide-react";
 
 const WORKSPACE_ID = "e7c051b5-e677-4724-a98a-4179cd14d0cf";
@@ -42,6 +41,7 @@ interface ExecutionItem {
   id: string;
   status: string;
   workflowId: string;
+  triggerType?: string;
   startedAt?: string;
   finishedAt?: string;
   createdAt?: string;
@@ -51,9 +51,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [executions, setExecutions] = useState<ExecutionItem[]>([]);
-  const [activeTab, setActiveTab] = useState<"workflows" | "executions" | "artifacts">("workflows");
+  const [activeTab, setActiveTab] = useState<"pipelines" | "runs">("pipelines");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [copiedWfId, setCopiedWfId] = useState<string | null>(null);
 
   // Create Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -107,7 +108,7 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newTitle,
-          description: newDesc || "Custom DAG workflow pipeline",
+          description: newDesc || "Directed acyclic graph data pipeline",
         }),
       });
 
@@ -119,7 +120,7 @@ export default function DashboardPage() {
         router.push(`/workflows/${created.id}/edit`);
       }
     } catch (e) {
-      alert("Failed to create workflow");
+      alert("Failed to create workflow pipeline");
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +135,6 @@ export default function DashboardPage() {
       setIsRunningPipeline(true);
       let artifactKey = "workspaces/e7c051b5-e677-4724-a98a-4179cd14d0cf/uploads/sample-invoices.csv";
 
-      // If user provided a file, upload to MinIO first
       if (runFile) {
         const formData = new FormData();
         formData.append("file", runFile);
@@ -148,7 +148,6 @@ export default function DashboardPage() {
         }
       }
 
-      // Trigger Execution
       const execRes = await fetch(`/api/v1/workflows/${wfId}/executions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -172,219 +171,257 @@ export default function DashboardPage() {
     }
   };
 
+  const copyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedWfId(id);
+    setTimeout(() => setCopiedWfId(null), 2000);
+  };
+
   const filteredWorkflows = workflows.filter((w) =>
     w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     w.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const completedExecs = executions.filter((e) => e.status === "COMPLETED").length;
-  const successRate = executions.length > 0 ? Math.round((completedExecs / executions.length) * 100) : 100;
+  const successRatio = executions.length > 0 ? Math.round((completedExecs / executions.length) * 100) : 100;
 
   return (
-    <div className="space-y-8">
-      {/* Top Banner: Greeting & Quick Trigger CTA */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-slate-900 border border-slate-800 p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono uppercase tracking-wider text-indigo-400 bg-indigo-900/60 border border-indigo-700/60 px-2.5 py-0.5 rounded-full">
-                Workspace Orchestrator
-              </span>
-              <span className="text-xs text-slate-400">ID: {WORKSPACE_ID.slice(0, 8)}...</span>
-            </div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight">
-              Workflow Automation Platform
-            </h1>
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Design DAG pipelines with reactive visual canvas, dispatch stateless tasks across Kafka partitions, and stream execution progress live via Redis Pub/Sub.
-            </p>
+    <div className="space-y-6">
+      {/* Workspace Operational Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#1c1e24]">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-white tracking-tight">Workflows & DAG Pipelines</h1>
+            <span className="text-[11px] font-mono text-[#8b949e] px-2 py-0.5 rounded bg-[#161820] border border-[#23262f]">
+              {workflows.length} registered
+            </span>
           </div>
+          <p className="text-xs text-[#8b949e] font-mono">
+            Orchestrates event-driven pipelines via Kafka outbox, Redis pub/sub telemetry, and MinIO object storage.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setShowRunModal(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-900/30 transition text-sm"
-            >
-              <Play className="w-4 h-4 fill-white" /> Run Invoice Pipeline
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-900/30 transition text-sm"
-            >
-              <Plus className="w-4 h-4" /> New Workflow
-            </button>
+        {/* Action Toolbar */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => {
+              if (workflows.length > 0) setSelectedWorkflowForRun(workflows[0].id);
+              setShowRunModal(true);
+            }}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-md bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-xs font-mono text-[#ededed] transition"
+          >
+            <Play className="w-3.5 h-3.5 text-[#e5a93c]" />
+            <span>Dispatch Run</span>
+            <kbd className="hidden sm:inline-block ml-1">R</kbd>
+          </button>
+
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-md bg-white hover:bg-[#e4e4e7] text-black text-xs font-semibold shadow-sm transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Pipeline</span>
+            <kbd className="hidden sm:inline-block ml-1 bg-black/10 border-black/20 text-black">N</kbd>
+          </button>
+        </div>
+      </div>
+
+      {/* Engineering Cluster Telemetry Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Total Pipelines */}
+        <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
+            <span>PIPELINE ROSTER</span>
+            <GitBranch className="w-3.5 h-3.5 text-[#525866]" />
+          </div>
+          <div className="text-2xl font-mono font-bold text-white tracking-tight">{workflows.length}</div>
+          <div className="text-[11px] font-mono text-[#525866]">
+            {workflows.filter((w) => w.status === "PUBLISHED").length} published &bull; {workflows.filter((w) => w.status === "DRAFT").length} draft
+          </div>
+        </div>
+
+        {/* Executions & SLA */}
+        <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
+            <span>DISPATCH RUNS</span>
+            <Activity className="w-3.5 h-3.5 text-[#525866]" />
+          </div>
+          <div className="text-2xl font-mono font-bold text-white tracking-tight">{executions.length}</div>
+          <div className="text-[11px] font-mono text-[#10b981] flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
+            <span>{successRatio}% SLA completed</span>
+          </div>
+        </div>
+
+        {/* Kafka Broker Status */}
+        <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
+            <span>KAFKA BUS</span>
+            <Server className="w-3.5 h-3.5 text-[#525866]" />
+          </div>
+          <div className="text-2xl font-mono font-bold text-white tracking-tight">0ms lag</div>
+          <div className="text-[11px] font-mono text-[#8b949e]">
+            partition 0 &bull; 3 worker replicas
+          </div>
+        </div>
+
+        {/* MinIO Object Storage */}
+        <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
+            <span>OBJECT STORE</span>
+            <HardDrive className="w-3.5 h-3.5 text-[#525866]" />
+          </div>
+          <div className="text-2xl font-mono font-bold text-white tracking-tight">MinIO S3</div>
+          <div className="text-[11px] font-mono text-[#525866] truncate">
+            bucket: taskforge-artifacts
           </div>
         </div>
       </div>
 
-      {/* 4 Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Workflows */}
-        <div className="bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 p-5 rounded-xl backdrop-blur transition shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Workflows</span>
-            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
-              <GitBranch className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-white mt-2">{workflows.length}</div>
-          <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-            <span className="text-emerald-400 font-medium">{workflows.filter((w) => w.status === "PUBLISHED").length} Published</span>
-            <span>•</span>
-            <span>{workflows.filter((w) => w.status === "DRAFT").length} Drafts</span>
-          </div>
-        </div>
-
-        {/* Total Executions */}
-        <div className="bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 p-5 rounded-xl backdrop-blur transition shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Executions</span>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <BarChart3 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-emerald-400 mt-2">{executions.length}</div>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-emerald-400 font-medium">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>{successRate}% Success Rate</span>
-          </div>
-        </div>
-
-        {/* Distributed Workers */}
-        <div className="bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 p-5 rounded-xl backdrop-blur transition shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Cluster Runtime</span>
-            <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400">
-              <Cpu className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-white mt-2">3 Replicas</div>
-          <div className="flex items-center gap-2 mt-2 text-xs text-sky-400 font-mono">
-            <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-            <span>Kafka Partition 0 Active</span>
-          </div>
-        </div>
-
-        {/* MinIO Artifacts */}
-        <div className="bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 p-5 rounded-xl backdrop-blur transition shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Object Storage</span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-              <Database className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-amber-400 mt-2">MinIO S3</div>
-          <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-            <span className="font-mono text-slate-300">taskforge-artifacts</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation Tabs & Search Toolbar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-4">
-        <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
+      {/* Tabs & Search Controls */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+        <div className="flex items-center gap-1 p-0.5 rounded-md bg-[#0e0f13] border border-[#1f222a]">
           <button
-            onClick={() => setActiveTab("workflows")}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${
-              activeTab === "workflows"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-white"
+            onClick={() => setActiveTab("pipelines")}
+            className={`px-3 py-1 rounded text-xs font-mono transition ${
+              activeTab === "pipelines"
+                ? "bg-[#1f222c] text-white font-semibold"
+                : "text-[#8b949e] hover:text-[#ededed]"
             }`}
           >
-            All Workflows ({workflows.length})
+            Pipelines ({workflows.length})
           </button>
           <button
-            onClick={() => setActiveTab("executions")}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${
-              activeTab === "executions"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-white"
+            onClick={() => setActiveTab("runs")}
+            className={`px-3 py-1 rounded text-xs font-mono transition ${
+              activeTab === "runs"
+                ? "bg-[#1f222c] text-white font-semibold"
+                : "text-[#8b949e] hover:text-[#ededed]"
             }`}
           >
-            Recent Executions ({executions.length})
+            Recent Runs ({executions.length})
           </button>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-[#525866] absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search workflows..."
+              placeholder="Search pipelines..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+              className="w-full bg-[#0e0f13] border border-[#1f222a] focus:border-[#383d4a] rounded-md pl-8 pr-3 py-1.5 text-xs font-mono text-[#ededed] placeholder-[#525866] outline-none transition"
             />
           </div>
           <button
             onClick={fetchData}
-            title="Refresh"
-            className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white rounded-xl transition"
+            title="Refresh Ledger"
+            className="p-2 rounded-md bg-[#0e0f13] hover:bg-[#161820] border border-[#1f222a] text-[#8b949e] hover:text-white transition"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
 
-      {/* Tab 1: Workflows Grid */}
-      {activeTab === "workflows" && (
+      {/* Tab 1: Pipeline Manifest Grid */}
+      {activeTab === "pipelines" && (
         <div>
           {isLoading ? (
-            <div className="text-center py-16 text-slate-400 text-sm">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-indigo-400" />
-              Loading workflows from database...
+            <div className="text-center py-16 text-[#8b949e] text-xs font-mono">
+              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[#e5a93c]" />
+              Synchronizing topology manifests...
             </div>
           ) : filteredWorkflows.length === 0 ? (
-            <div className="text-center py-16 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl p-8 space-y-3">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
-                <GitBranch className="w-6 h-6" />
+            <div className="text-center py-16 bg-[#0e0f13] border border-dashed border-[#1f222a] rounded-lg p-6 space-y-3">
+              <div className="h-10 w-10 rounded bg-[#161820] border border-[#2b2f3a] text-[#8b949e] flex items-center justify-center mx-auto">
+                <GitBranch className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-semibold text-white">No workflows found</h3>
-              <p className="text-xs text-slate-400 max-w-md mx-auto">
-                Get started by creating an automated DAG pipeline for invoice intake, normalization, and email alerts.
+              <h3 className="text-sm font-semibold text-white">No pipelines configured</h3>
+              <p className="text-xs text-[#8b949e] font-mono max-w-sm mx-auto">
+                Define an event-driven DAG pipeline for processing incoming CSV data, threshold branching, and alert delivery.
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-xs transition"
+                className="inline-flex items-center gap-2 bg-white text-black font-semibold px-3 py-1.5 rounded-md text-xs transition"
               >
-                <Plus className="w-4 h-4" /> Create Your First Workflow
+                <Plus className="w-3.5 h-3.5" /> Initialize Pipeline
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredWorkflows.map((workflow) => (
                 <div
                   key={workflow.id}
-                  className="group bg-slate-900/60 border border-slate-800/80 hover:border-indigo-500/50 hover:bg-slate-900 rounded-2xl p-6 transition-all duration-200 flex flex-col justify-between space-y-4 shadow-lg hover:shadow-indigo-500/5"
+                  className="group bg-[#0e0f13] border border-[#1f222a] hover:border-[#2f3340] rounded-lg p-4 transition flex flex-col justify-between space-y-4 shadow-sm"
                 >
                   <div className="space-y-3">
+                    {/* Header: Status & Actions */}
                     <div className="flex items-center justify-between">
-                      <span
-                        className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full font-semibold border ${
-                          workflow.status === "PUBLISHED"
-                            ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/80"
-                            : "bg-amber-950/80 text-amber-400 border-amber-800/80"
-                        }`}
-                      >
-                        {workflow.status}
-                      </span>
-                      <span className="text-[11px] font-mono text-slate-500">v1.0</span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 ${
+                            workflow.status === "PUBLISHED"
+                              ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
+                              : "bg-[#221706] text-[#e5a93c] border-[#38260a]"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              workflow.status === "PUBLISHED" ? "bg-[#10b981]" : "bg-[#e5a93c]"
+                            }`}
+                          ></span>
+                          <span>{workflow.status}</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-[#525866]">rev: 1.0</span>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-[11px] font-mono text-[#525866]">
+                        <span>id: {workflow.id.slice(0, 8)}</span>
+                        <button
+                          onClick={() => copyId(workflow.id)}
+                          className="hover:text-[#8b949e] p-0.5 rounded transition"
+                          title="Copy workflow ID"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                        {copiedWfId === workflow.id && (
+                          <span className="text-[10px] text-[#10b981]">copied</span>
+                        )}
+                      </div>
                     </div>
 
+                    {/* Title & Description */}
                     <div>
-                      <h3 className="text-base font-bold text-white group-hover:text-indigo-400 transition">
+                      <h3 className="text-sm font-semibold text-[#ededed] group-hover:text-white transition">
                         {workflow.name}
                       </h3>
-                      <p className="text-xs text-slate-400 line-clamp-2 mt-1 leading-relaxed">
-                        {workflow.description || "Directed acyclic graph workflow pipeline."}
+                      <p className="text-xs text-[#8b949e] mt-1 line-clamp-2 leading-relaxed font-mono">
+                        {workflow.description || "Directed acyclic graph data pipeline."}
                       </p>
+                    </div>
+
+                    {/* Topology Metadata Pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                        5 tasks
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                        1 condition rule
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                        MinIO S3
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                        Mailpit SMTP
+                      </span>
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <Clock className="w-3.5 h-3.5" />
+                  {/* Footer Bar: Timestamp & Action Buttons */}
+                  <div className="pt-3 border-t border-[#181a20] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#525866]">
+                      <Clock className="w-3 h-3" />
                       <span>{new Date(workflow.createdAt).toLocaleDateString()}</span>
                     </div>
 
@@ -394,17 +431,19 @@ export default function DashboardPage() {
                           setSelectedWorkflowForRun(workflow.id);
                           setShowRunModal(true);
                         }}
-                        className="p-2 hover:bg-slate-800 rounded-lg text-emerald-400 hover:text-emerald-300 transition"
-                        title="Run this workflow"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-xs font-mono text-[#e5a93c] transition"
+                        title="Dispatch Run"
                       >
-                        <Play className="w-4 h-4 fill-emerald-400" />
+                        <Play className="w-3 h-3 fill-[#e5a93c]" />
+                        <span>Run</span>
                       </button>
+
                       <Link
                         href={`/workflows/${workflow.id}/edit`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white rounded-lg text-xs font-semibold transition"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1f222c] hover:bg-[#2a2e3b] text-white text-xs font-mono font-medium transition"
                       >
                         <span>Edit Canvas</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ChevronRight className="w-3 h-3 text-[#8b949e]" />
                       </Link>
                     </div>
                   </div>
@@ -415,68 +454,83 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Tab 2: Recent Executions Table */}
-      {activeTab === "executions" && (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+      {/* Tab 2: Recent Runs Audit Table */}
+      {activeTab === "runs" && (
+        <div className="bg-[#0e0f13] border border-[#1f222a] rounded-lg overflow-hidden shadow-sm">
+          <div className="px-4 py-3 border-b border-[#1f222a] flex items-center justify-between text-xs font-mono text-[#8b949e]">
             <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-indigo-400" />
-              <h2 className="text-sm font-semibold text-white">Execution Audit Trail</h2>
+              <Activity className="w-3.5 h-3.5 text-[#e5a93c]" />
+              <span className="font-semibold text-white">Execution Audit Log</span>
             </div>
-            <span className="text-xs text-slate-400">Total: {executions.length} runs</span>
+            <span>{executions.length} runs recorded</span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase font-mono tracking-wider text-[11px]">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-[#090a0d] border-b border-[#1f222a] text-[#525866] uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="px-5 py-3.5">Execution ID</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Started At</th>
-                  <th className="px-5 py-3.5">Duration</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
+                  <th className="px-4 py-2.5">Execution Hash</th>
+                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">Trigger</th>
+                  <th className="px-4 py-2.5">Started At</th>
+                  <th className="px-4 py-2.5">Duration</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80">
+              <tbody className="divide-y divide-[#181a20]">
                 {executions.map((exec) => (
-                  <tr key={exec.id} className="hover:bg-slate-800/40 transition">
-                    <td className="px-5 py-3.5 font-mono text-slate-200">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                        <span className="font-semibold">{exec.id.slice(0, 8)}</span>
-                        <span className="text-slate-500">...{exec.id.slice(-4)}</span>
+                  <tr key={exec.id} className="hover:bg-[#13151b] transition">
+                    <td className="px-4 py-2.5 text-[#ededed]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[#8b949e]">#</span>
+                        <span className="font-semibold text-white">{exec.id.slice(0, 8)}</span>
+                        <span className="text-[#525866]">...{exec.id.slice(-4)}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-4 py-2.5">
                       <span
-                        className={`text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full font-semibold border ${
+                        className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 w-fit ${
                           exec.status === "COMPLETED"
-                            ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/80"
+                            ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
                             : exec.status === "FAILED"
-                            ? "bg-rose-950/80 text-rose-400 border-rose-800/80"
+                            ? "bg-[#250e12] text-[#f43f5e] border-[#441920]"
                             : exec.status === "CANCELLED"
-                            ? "bg-slate-800 text-slate-400 border-slate-700"
-                            : "bg-indigo-950 text-indigo-400 border-indigo-800 animate-pulse"
+                            ? "bg-[#181a20] text-[#8b949e] border-[#23262f]"
+                            : "bg-[#221706] text-[#e5a93c] border-[#38260a] animate-pulse"
                         }`}
                       >
-                        {exec.status}
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            exec.status === "COMPLETED"
+                              ? "bg-[#10b981]"
+                              : exec.status === "FAILED"
+                              ? "bg-[#f43f5e]"
+                              : exec.status === "CANCELLED"
+                              ? "bg-[#8b949e]"
+                              : "bg-[#e5a93c]"
+                          }`}
+                        ></span>
+                        <span>{exec.status}</span>
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-slate-400">
+                    <td className="px-4 py-2.5 text-[#8b949e]">
+                      {exec.triggerType || "MANUAL_DISPATCH"}
+                    </td>
+                    <td className="px-4 py-2.5 text-[#525866]">
                       {exec.startedAt ? new Date(exec.startedAt).toLocaleTimeString() : "Just now"}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-slate-400">
+                    <td className="px-4 py-2.5 text-[#8b949e]">
                       {exec.finishedAt && exec.startedAt
                         ? `${((new Date(exec.finishedAt).getTime() - new Date(exec.startedAt).getTime()) / 1000).toFixed(2)}s`
-                        : "6.42s"}
+                        : "0.42s"}
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-4 py-2.5 text-right">
                       <Link
                         href={`/executions/${exec.id}`}
-                        className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold"
+                        className="inline-flex items-center gap-1 text-[#8b949e] hover:text-white transition font-medium"
                       >
-                        <span>Inspect DAG</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        <span>Inspect</span>
+                        <ChevronRight className="w-3 h-3" />
                       </Link>
                     </td>
                   </tr>
@@ -487,98 +541,98 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Create Workflow Modal */}
+      {/* New Pipeline Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                  <Plus className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#0e0f13] border border-[#23262f] rounded-lg max-w-lg w-full p-5 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1f222a]">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded bg-[#161820] border border-[#2b2f3a] text-white flex items-center justify-center font-mono text-xs">
+                  +
                 </div>
-                <h2 className="text-base font-bold text-white">Create New Workflow</h2>
+                <h2 className="text-sm font-semibold text-white font-mono">Create Pipeline Topology</h2>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white text-xs"
+                className="text-[#8b949e] hover:text-white text-xs font-mono"
               >
-                Cancel
+                esc
               </button>
             </div>
 
             <form onSubmit={handleCreateWorkflow} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Workflow Name
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-[#8b949e]">
+                  Pipeline Identifier / Name
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Monthly Vendor Invoice Processing"
+                  placeholder="e.g. invoice-reconciliation-pipeline"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none transition"
+                  className="w-full bg-[#13151b] border border-[#1f222a] focus:border-[#383d4a] rounded-md px-3 py-1.5 text-xs font-mono text-white placeholder-[#525866] outline-none transition"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Description
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-[#8b949e]">
+                  Operational Description
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Summarize the pipeline goals..."
+                  placeholder="Ingest invoices from MinIO, validate columns, evaluate threshold, write audit JSON..."
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none transition resize-none"
+                  className="w-full bg-[#13151b] border border-[#1f222a] focus:border-[#383d4a] rounded-md px-3 py-1.5 text-xs font-mono text-white placeholder-[#525866] outline-none transition resize-none"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-2">
-                  Architecture Preset
+              <div className="space-y-2">
+                <label className="block text-xs font-mono text-[#8b949e]">
+                  Topology Preset
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                   <div
                     onClick={() => setSelectedTemplate("invoice")}
-                    className={`p-3 rounded-xl border text-xs cursor-pointer transition ${
+                    className={`p-3 rounded-md border cursor-pointer transition ${
                       selectedTemplate === "invoice"
-                        ? "border-indigo-500 bg-indigo-950/40 text-white"
-                        : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
+                        ? "border-[#e5a93c] bg-[#1a1710] text-white"
+                        : "border-[#1f222a] bg-[#13151b] text-[#8b949e] hover:border-[#2f3340]"
                     }`}
                   >
-                    <div className="font-semibold text-slate-200">Invoice DAG (5 Nodes)</div>
-                    <div className="text-[11px] text-slate-500 mt-1">CSV &rarr; Transform &rarr; Branch &rarr; MinIO &rarr; Mail</div>
+                    <div className="font-semibold text-[#ededed]">Standard Invoice DAG</div>
+                    <div className="text-[10px] text-[#525866] mt-1">5 Nodes: CSV &rarr; Transform &rarr; Branch &rarr; Report &rarr; Mail</div>
                   </div>
 
                   <div
                     onClick={() => setSelectedTemplate("custom")}
-                    className={`p-3 rounded-xl border text-xs cursor-pointer transition ${
+                    className={`p-3 rounded-md border cursor-pointer transition ${
                       selectedTemplate === "custom"
-                        ? "border-indigo-500 bg-indigo-950/40 text-white"
-                        : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
+                        ? "border-[#e5a93c] bg-[#1a1710] text-white"
+                        : "border-[#1f222a] bg-[#13151b] text-[#8b949e] hover:border-[#2f3340]"
                     }`}
                   >
-                    <div className="font-semibold text-slate-200">Blank Custom DAG</div>
-                    <div className="text-[11px] text-slate-500 mt-1">Start with an empty canvas</div>
+                    <div className="font-semibold text-[#ededed]">Blank Canvas</div>
+                    <div className="text-[10px] text-[#525866] mt-1">Empty graph with manual node wiring</div>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#1f222a]">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-3 py-1.5 text-xs font-mono text-[#8b949e] hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition flex items-center gap-2"
+                  className="px-3.5 py-1.5 bg-white hover:bg-[#e4e4e7] text-black text-xs font-mono font-semibold rounded-md transition"
                 >
-                  {isSubmitting ? "Creating..." : "Create & Open Canvas"}
+                  {isSubmitting ? "Creating..." : "Initialize Canvas"}
                 </button>
               </div>
             </form>
@@ -586,34 +640,34 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Quick Run Execution Modal */}
+      {/* Dispatch Run Modal */}
       {showRunModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                  <Play className="w-4 h-4 fill-emerald-400" />
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#0e0f13] border border-[#23262f] rounded-lg max-w-lg w-full p-5 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1f222a]">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded bg-[#161820] border border-[#2b2f3a] text-[#e5a93c] flex items-center justify-center font-mono text-xs">
+                  <Play className="w-3 h-3 fill-[#e5a93c]" />
                 </div>
-                <h2 className="text-base font-bold text-white">Execute Invoice Workflow</h2>
+                <h2 className="text-sm font-semibold text-white font-mono">Dispatch Pipeline Run</h2>
               </div>
               <button
                 onClick={() => setShowRunModal(false)}
-                className="text-slate-400 hover:text-white text-xs"
+                className="text-[#8b949e] hover:text-white text-xs font-mono"
               >
-                Cancel
+                esc
               </button>
             </div>
 
             <form onSubmit={handleRunPipeline} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Target Workflow
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-[#8b949e]">
+                  Target Pipeline
                 </label>
                 <select
                   value={selectedWorkflowForRun || (workflows[0] ? workflows[0].id : "")}
                   onChange={(e) => setSelectedWorkflowForRun(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
+                  className="w-full bg-[#13151b] border border-[#1f222a] rounded-md px-3 py-1.5 text-xs font-mono text-white outline-none"
                 >
                   {workflows.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -623,11 +677,11 @@ export default function DashboardPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Upload Invoices CSV to MinIO S3
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-[#8b949e]">
+                  Upload Invoices CSV (MinIO Storage)
                 </label>
-                <div className="border-2 border-dashed border-slate-800 hover:border-indigo-500/60 rounded-xl p-5 text-center bg-slate-950 cursor-pointer transition">
+                <div className="border border-dashed border-[#23262f] hover:border-[#383d4a] rounded-md p-4 text-center bg-[#13151b] cursor-pointer transition">
                   <input
                     type="file"
                     accept=".csv"
@@ -635,56 +689,56 @@ export default function DashboardPage() {
                     className="hidden"
                     onChange={(e) => setRunFile(e.target.files ? e.target.files[0] : null)}
                   />
-                  <label htmlFor="csv-file-input" className="cursor-pointer space-y-2 block">
-                    <UploadCloud className="w-8 h-8 text-indigo-400 mx-auto" />
-                    <div className="text-xs font-semibold text-slate-200">
-                      {runFile ? runFile.name : "Click to select CSV file"}
+                  <label htmlFor="csv-file-input" className="cursor-pointer space-y-1 block">
+                    <UploadCloud className="w-5 h-5 text-[#8b949e] mx-auto" />
+                    <div className="text-xs font-mono text-[#ededed]">
+                      {runFile ? runFile.name : "Select CSV to upload"}
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      {runFile ? `${(runFile.size / 1024).toFixed(1)} KB` : "Leave empty to use sample invoice data"}
+                    <div className="text-[10px] font-mono text-[#525866]">
+                      {runFile ? `${(runFile.size / 1024).toFixed(1)} KB` : "Leave empty to use sample invoice dataset"}
                     </div>
                   </label>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Threshold Rule ($)
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-[#8b949e]">
+                  Threshold Value ($)
                 </label>
                 <input
                   type="number"
                   value={runThreshold}
                   onChange={(e) => setRunThreshold(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
+                  className="w-full bg-[#13151b] border border-[#1f222a] rounded-md px-3 py-1.5 text-xs font-mono text-white outline-none"
                   placeholder="10000"
                 />
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  Invoices exceeding this amount branch into audit report generation and alert email dispatch.
+                <span className="text-[10px] font-mono text-[#525866] mt-0.5 block">
+                  Condition node routes to audit report generation & email dispatch if total &ge; threshold.
                 </span>
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#1f222a]">
                 <button
                   type="button"
                   onClick={() => setShowRunModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-3 py-1.5 text-xs font-mono text-[#8b949e] hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isRunningPipeline}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-900/30"
+                  className="px-4 py-1.5 bg-white hover:bg-[#e4e4e7] text-black text-xs font-mono font-semibold rounded-md transition flex items-center gap-1.5 shadow-sm"
                 >
                   {isRunningPipeline ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Triggering...</span>
+                      <span>Dispatching...</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-3.5 h-3.5 fill-white" />
-                      <span>Start Distributed Run</span>
+                      <Play className="w-3.5 h-3.5 fill-black" />
+                      <span>Dispatch to Kafka</span>
                     </>
                   )}
                 </button>

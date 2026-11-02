@@ -3,92 +3,110 @@
 @tailwind utilities;
 
 :root {
-  --background: #090d16;
-  --foreground: #f8fafc;
+  --background: #090a0d;
+  --foreground: #ededed;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar */
+/* Precision Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #090a0d;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 4px;
+  background: #23262f;
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #343846;
 }
 
-/* React Flow custom overrides */
+/* React Flow Visual Canvas Engine Styling */
+.react-flow__renderer {
+  background: #090a0d !important;
+}
+
 .react-flow__node {
-  border-radius: 10px;
-  transition: all 0.15s ease-in-out;
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
 .react-flow__node.selected {
-  box-shadow: 0 0 0 2px #6366f1, 0 8px 24px -4px rgba(99, 102, 241, 0.4) !important;
+  outline: none;
+  box-shadow: 0 0 0 1px #e5a93c !important;
 }
+
 .react-flow__handle {
-  width: 10px;
-  height: 10px;
-  background: #6366f1;
-  border: 2px solid #0f172a;
+  width: 8px;
+  height: 8px;
+  background: #e5a93c;
+  border: 1.5px solid #090a0d;
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
+
 .react-flow__handle:hover {
-  background: #a5b4fc;
+  transform: scale(1.3);
+  background: #fde047;
 }
+
 .react-flow__edge-path {
-  stroke-width: 2;
-  transition: stroke 0.2s;
+  stroke-width: 1.75;
+  stroke: #383c4a;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
 }
+
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: #6366f1 !important;
-  stroke-width: 2.5;
+  stroke: #e5a93c !important;
+  stroke-width: 2.25;
 }
+
 .react-flow__minimap {
-  background: #0b1120 !important;
-  border: 1px solid #1e293b !important;
-  border-radius: 8px !important;
+  background: #0e0f13 !important;
+  border: 1px solid #23262f !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
 }
+
 .react-flow__controls {
-  background: #0f172a !important;
-  border: 1px solid #1e293b !important;
-  border-radius: 8px !important;
+  background: #0e0f13 !important;
+  border: 1px solid #23262f !important;
+  border-radius: 6px !important;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
 }
+
 .react-flow__controls button {
-  background: #0f172a !important;
-  border-bottom: 1px solid #1e293b !important;
-  color: #94a3b8 !important;
-  fill: #94a3b8 !important;
+  background: #0e0f13 !important;
+  border-bottom: 1px solid #23262f !important;
+  color: #8b949e !important;
+  fill: #8b949e !important;
 }
+
 .react-flow__controls button:hover {
-  background: #1e293b !important;
-  color: #f8fafc !important;
-  fill: #f8fafc !important;
+  background: #181920 !important;
+  color: #ededed !important;
+  fill: #ededed !important;
 }
 
-/* Glassmorphism utility */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.6);
-}
-
-.glass-card {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+/* Monospace Code & Key Styling */
+kbd {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #171920;
+  border: 1px solid #2e323e;
+  color: #8b949e;
 }

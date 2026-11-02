@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ReactFlow,
@@ -14,7 +14,9 @@ import {
   Edge,
   Node,
   BackgroundVariant,
-  MarkerType
+  Handle,
+  Position,
+  NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import Link from "next/link";
@@ -23,67 +25,170 @@ import {
   Save,
   UploadCloud,
   Play,
-  Plus,
   Trash2,
   FileCheck,
   Split,
   RefreshCw,
   Mail,
   FileText,
-  Globe,
   CheckCircle2,
   AlertTriangle,
   ChevronRight,
   Settings,
-  Sparkles,
-  Info
+  HardDrive,
+  Info,
+  Layers,
+  Database
 } from "lucide-react";
 
 const WORKSPACE_ID = "e7c051b5-e677-4724-a98a-4179cd14d0cf";
 
+// Category Color & Indicator Registry
+const TASK_TYPE_META: Record<string, { label: string; tag: string; color: string; border: string }> = {
+  CSV_VALIDATE: {
+    label: "CSV Intake & Validator",
+    tag: "INGEST",
+    color: "#38bdf8",
+    border: "#1e3a5f",
+  },
+  DATA_TRANSFORM: {
+    label: "Cleanse & Normalize",
+    tag: "TRANSFORM",
+    color: "#a78bfa",
+    border: "#3b2b5f",
+  },
+  CONDITION: {
+    label: "Threshold Rule Gate",
+    tag: "LOGIC",
+    color: "#e5a93c",
+    border: "#4d3810",
+  },
+  GENERATE_REPORT: {
+    label: "Generate Audit Report",
+    tag: "STORAGE",
+    color: "#10b981",
+    border: "#163e26",
+  },
+  SEND_EMAIL: {
+    label: "Dispatch Email Alert",
+    tag: "SINK",
+    color: "#06b6d4",
+    border: "#154249",
+  },
+};
+
+// Bespoke Custom Hardware/Dataflow React Flow Node
+function PipelineTaskNode({ data, selected }: NodeProps) {
+  const taskType = (data.taskType as string) || "CSV_VALIDATE";
+  const meta = TASK_TYPE_META[taskType] || {
+    label: "Task Node",
+    tag: "STEP",
+    color: "#8b949e",
+    border: "#23262f",
+  };
+
+  const isCondition = taskType === "CONDITION";
+
+  return (
+    <div
+      className={`w-60 rounded-md bg-[#111216] border transition-all text-left shadow-lg ${
+        selected ? "border-[#e5a93c] ring-1 ring-[#e5a93c]/50" : "border-[#22252e] hover:border-[#383d4a]"
+      }`}
+    >
+      {/* Top Tag & Type Stripe */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1c1e26] bg-[#0c0d10] rounded-t-md">
+        <div className="flex items-center gap-1.5">
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: meta.color }}
+          ></span>
+          <span
+            className="text-[10px] font-mono font-bold tracking-wider"
+            style={{ color: meta.color }}
+          >
+            {meta.tag}
+          </span>
+        </div>
+        <span className="text-[10px] font-mono text-[#525866]">
+          {String(data.label || "").split(".")[0] || "STEP"}
+        </span>
+      </div>
+
+      {/* Main Body */}
+      <div className="p-3 space-y-2">
+        <div className="text-xs font-semibold text-[#ededed] leading-snug">
+          {String(data.label || meta.label)}
+        </div>
+
+        {/* Parameter / Config Snippet */}
+        <div className="text-[10px] font-mono text-[#8b949e] bg-[#161820] px-2 py-1 rounded border border-[#1f222a] truncate">
+          {isCondition ? (
+            <span>Rule: amount &ge; $10k</span>
+          ) : taskType === "GENERATE_REPORT" ? (
+            <span>Target: taskforge-artifacts</span>
+          ) : taskType === "SEND_EMAIL" ? (
+            <span>To: ops@taskforge.local</span>
+          ) : (
+            <span>Task: {taskType}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Input Handle */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!w-2.5 !h-2.5 !bg-[#e5a93c] !border-2 !border-[#111216]"
+      />
+
+      {/* Output Handle */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!w-2.5 !h-2.5 !bg-[#e5a93c] !border-2 !border-[#111216]"
+      />
+    </div>
+  );
+}
+
 const initialNodes: Node[] = [
   {
     id: "node-1",
-    type: "default",
+    type: "pipelineNode",
     data: { label: "1. CSV Intake & Validation", taskType: "CSV_VALIDATE", config: { requiredColumns: "invoiceNumber, customer, amount, dueDate, status" } },
-    position: { x: 260, y: 40 },
-    style: { background: "#0f172a", color: "#f8fafc", border: "1px solid #3b82f6", borderRadius: "10px", padding: "12px 16px", minWidth: 200, boxShadow: "0 4px 14px rgba(59, 130, 246, 0.2)" },
+    position: { x: 280, y: 30 },
   },
   {
     id: "node-2",
-    type: "default",
+    type: "pipelineNode",
     data: { label: "2. Cleanse & Normalize Records", taskType: "DATA_TRANSFORM", config: { currency: "USD", sanitizeStrings: true } },
-    position: { x: 260, y: 160 },
-    style: { background: "#0f172a", color: "#f8fafc", border: "1px solid #8b5cf6", borderRadius: "10px", padding: "12px 16px", minWidth: 200, boxShadow: "0 4px 14px rgba(139, 92, 246, 0.2)" },
+    position: { x: 280, y: 160 },
   },
   {
     id: "node-3",
-    type: "default",
+    type: "pipelineNode",
     data: { label: "3. Check Invoice Threshold (> $10k)", taskType: "CONDITION", config: { threshold: 10000, condition: "amount >= threshold" } },
-    position: { x: 260, y: 280 },
-    style: { background: "#0f172a", color: "#f8fafc", border: "1px solid #f59e0b", borderRadius: "10px", padding: "12px 16px", minWidth: 200, boxShadow: "0 4px 14px rgba(245, 158, 11, 0.2)" },
+    position: { x: 280, y: 290 },
   },
   {
     id: "node-4",
-    type: "default",
+    type: "pipelineNode",
     data: { label: "4. Generate Summary Report", taskType: "GENERATE_REPORT", config: { format: "JSON_AUDIT", bucket: "taskforge-artifacts" } },
-    position: { x: 120, y: 410 },
-    style: { background: "#0f172a", color: "#f8fafc", border: "1px solid #10b981", borderRadius: "10px", padding: "12px 16px", minWidth: 190, boxShadow: "0 4px 14px rgba(16, 185, 129, 0.2)" },
+    position: { x: 130, y: 430 },
   },
   {
     id: "node-5",
-    type: "default",
+    type: "pipelineNode",
     data: { label: "5. Dispatch Notification Email", taskType: "SEND_EMAIL", config: { recipient: "ops@taskforge.local", subject: "Workflow Alert" } },
-    position: { x: 400, y: 410 },
-    style: { background: "#0f172a", color: "#f8fafc", border: "1px solid #06b6d4", borderRadius: "10px", padding: "12px 16px", minWidth: 190, boxShadow: "0 4px 14px rgba(6, 182, 212, 0.2)" },
+    position: { x: 430, y: 430 },
   },
 ];
 
 const initialEdges: Edge[] = [
-  { id: "e1-2", source: "node-1", target: "node-2", animated: true, style: { stroke: "#6366f1", strokeWidth: 2 } },
-  { id: "e2-3", source: "node-2", target: "node-3", animated: true, style: { stroke: "#6366f1", strokeWidth: 2 } },
-  { id: "e3-4", source: "node-3", target: "node-4", label: "Threshold Passed", animated: true, style: { stroke: "#10b981", strokeWidth: 2 } },
-  { id: "e3-5", source: "node-3", target: "node-5", label: "Flag for Review", animated: true, style: { stroke: "#f59e0b", strokeWidth: 2 } },
+  { id: "e1-2", source: "node-1", target: "node-2", animated: true, style: { stroke: "#525866", strokeWidth: 1.5 } },
+  { id: "e2-3", source: "node-2", target: "node-3", animated: true, style: { stroke: "#525866", strokeWidth: 1.5 } },
+  { id: "e3-4", source: "node-3", target: "node-4", label: "Threshold Passed", animated: true, style: { stroke: "#10b981", strokeWidth: 1.5 } },
+  { id: "e3-5", source: "node-3", target: "node-5", label: "Flag for Review", animated: true, style: { stroke: "#e5a93c", strokeWidth: 1.5 } },
 ];
 
 export default function WorkflowEditorPage() {
@@ -106,6 +211,8 @@ export default function WorkflowEditorPage() {
   const [runThreshold, setRunThreshold] = useState("10000");
   const [isRunning, setIsRunning] = useState(false);
 
+  const nodeTypes = useMemo(() => ({ pipelineNode: PipelineTaskNode }), []);
+
   useEffect(() => {
     if (!workflowId) return;
     fetch(`/api/v1/workflows/${workflowId}`)
@@ -118,8 +225,17 @@ export default function WorkflowEditorPage() {
           if (wf.draftDefinition) {
             try {
               const parsed = JSON.parse(wf.draftDefinition);
-              if (parsed.nodes && parsed.nodes.length > 0) setNodes(parsed.nodes);
-              if (parsed.edges && parsed.edges.length > 0) setEdges(parsed.edges);
+              if (parsed.nodes && parsed.nodes.length > 0) {
+                // Ensure nodes use custom node type
+                const formattedNodes = parsed.nodes.map((n: Node) => ({
+                  ...n,
+                  type: "pipelineNode",
+                }));
+                setNodes(formattedNodes);
+              }
+              if (parsed.edges && parsed.edges.length > 0) {
+                setEdges(parsed.edges);
+              }
             } catch (e) {}
           }
         }
@@ -134,7 +250,7 @@ export default function WorkflowEditorPage() {
           {
             ...params,
             animated: true,
-            style: { stroke: "#6366f1", strokeWidth: 2 },
+            style: { stroke: "#525866", strokeWidth: 1.5 },
           },
           eds
         )
@@ -142,32 +258,22 @@ export default function WorkflowEditorPage() {
     [setEdges]
   );
 
-  const addNode = (label: string, taskType: string, typeColor: string) => {
+  const addNode = (label: string, taskType: string) => {
     const id = `node-${Date.now().toString().slice(-4)}`;
     const newNode: Node = {
       id,
-      type: "default",
+      type: "pipelineNode",
       data: { label, taskType, config: {} },
-      position: { x: 260, y: (nodes.length + 1) * 90 },
-      style: {
-        background: "#0f172a",
-        color: "#f8fafc",
-        border: `1px solid ${typeColor}`,
-        borderRadius: "10px",
-        padding: "12px 16px",
-        minWidth: 190,
-        boxShadow: `0 4px 14px ${typeColor}33`,
-      },
+      position: { x: 280, y: (nodes.length + 1) * 90 },
     };
     setNodes((nds) => [...nds, newNode]);
   };
 
   const handleValidateGraph = () => {
     if (nodes.length === 0) {
-      setValidationResult({ valid: false, message: "Graph cannot be empty." });
+      setValidationResult({ valid: false, message: "Topology cannot be empty." });
       return;
     }
-    // Simple cycle and root validation
     const targetSet = new Set(edges.map((e) => e.target));
     const roots = nodes.filter((n) => !targetSet.has(n.id));
 
@@ -195,7 +301,7 @@ export default function WorkflowEditorPage() {
         }),
       });
       setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2500);
+      setTimeout(() => setIsSaved(false), 2000);
     } catch (e) {
       alert("Failed to save draft");
     }
@@ -220,7 +326,7 @@ export default function WorkflowEditorPage() {
       if (res.ok) {
         setWorkflowStatus("PUBLISHED");
         setIsPublished(true);
-        setTimeout(() => setIsPublished(false), 2500);
+        setTimeout(() => setIsPublished(false), 2000);
       } else {
         const err = await res.json();
         alert(err.message || "Failed to publish workflow");
@@ -249,7 +355,6 @@ export default function WorkflowEditorPage() {
         }
       }
 
-      // Save & Publish
       await fetch(`/api/v1/workflows/${workflowId}/draft`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -286,72 +391,73 @@ export default function WorkflowEditorPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col space-y-4">
-      {/* Editor Top Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl">
-        <div className="flex items-center gap-4">
+    <div className="h-[calc(100vh-125px)] flex flex-col space-y-3">
+      {/* Topology Header & Action Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#0e0f13] border border-[#1f222a] px-4 py-2.5 rounded-lg shadow-sm">
+        <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition"
+            className="p-1.5 rounded-md bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-[#8b949e] hover:text-white transition"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
+
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={workflowTitle}
                 onChange={(e) => setWorkflowTitle(e.target.value)}
-                className="text-lg font-bold text-white bg-transparent border-b border-transparent hover:border-slate-700 focus:border-indigo-500 outline-none transition"
+                className="text-sm font-semibold text-white bg-transparent border-b border-transparent hover:border-[#2b2f3a] focus:border-[#e5a93c] outline-none transition font-mono"
               />
               <span
-                className={`text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full font-semibold border ${
+                className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 ${
                   workflowStatus === "PUBLISHED"
-                    ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/80"
-                    : "bg-amber-950/80 text-amber-400 border-amber-800/80"
+                    ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
+                    : "bg-[#221706] text-[#e5a93c] border-[#38260a]"
                 }`}
               >
-                {workflowStatus} v1
+                <span>{workflowStatus}</span>
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              ID: {workflowId ? workflowId.slice(0, 8) : "wf"}... • Distributed DAG Execution Engine
+            <p className="text-[11px] font-mono text-[#525866]">
+              Topology ID: {workflowId ? workflowId.slice(0, 8) : "wf"} &bull; DAG Execution Engine
             </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
           <button
             onClick={handleValidateGraph}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[#8b949e] hover:text-white bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] rounded-md transition"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Validate DAG</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#e5a93c]" />
+            <span>Validate</span>
           </button>
 
           <button
             onClick={handleSaveDraft}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[#8b949e] hover:text-white bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] rounded-md transition"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>{isSaved ? "Saved!" : "Save Draft"}</span>
+            <span>{isSaved ? "Saved" : "Save Draft"}</span>
           </button>
 
           <button
             onClick={handlePublish}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/80 rounded-xl transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[#ededed] hover:text-white bg-[#18231c] hover:bg-[#1f3025] border border-[#284a34] rounded-md transition"
           >
-            <UploadCloud className="w-3.5 h-3.5" />
-            <span>{isPublished ? "Published!" : "Publish Version"}</span>
+            <UploadCloud className="w-3.5 h-3.5 text-[#10b981]" />
+            <span>{isPublished ? "Published" : "Publish"}</span>
           </button>
 
           <button
             onClick={() => setShowRunModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 rounded-xl shadow-lg shadow-indigo-900/40 transition"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-mono font-semibold text-black bg-white hover:bg-[#e4e4e7] rounded-md transition shadow-sm"
           >
-            <Play className="w-3.5 h-3.5 fill-white" />
-            <span>Run Pipeline</span>
+            <Play className="w-3.5 h-3.5 fill-black" />
+            <span>Run</span>
           </button>
         </div>
       </div>
@@ -359,154 +465,162 @@ export default function WorkflowEditorPage() {
       {/* Validation Banner if Triggered */}
       {validationResult && (
         <div
-          className={`px-4 py-2.5 rounded-xl border text-xs flex items-center gap-2 animate-in fade-in transition ${
+          className={`px-3 py-2 rounded-md border text-xs font-mono flex items-center gap-2 transition ${
             validationResult.valid
-              ? "bg-emerald-950/80 text-emerald-300 border-emerald-800/80"
-              : "bg-rose-950/80 text-rose-300 border-rose-800/80"
+              ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
+              : "bg-[#250e12] text-[#f43f5e] border-[#441920]"
           }`}
         >
           {validationResult.valid ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
           ) : (
-            <AlertTriangle className="w-4 h-4 text-rose-400" />
+            <AlertTriangle className="w-3.5 h-3.5 text-[#f43f5e]" />
           )}
-          <span className="font-medium">{validationResult.message}</span>
+          <span>{validationResult.message}</span>
         </div>
       )}
 
-      {/* Main Canvas + Sidebar Palette */}
-      <div className="flex-1 flex gap-4 min-h-0">
-        {/* Left Component Palette */}
-        <div className="w-72 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col space-y-4 shadow-xl">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Node Library</span>
-            <span className="text-[10px] text-slate-500 font-mono">6 Nodes</span>
+      {/* Canvas Workspace & Sidebar Library */}
+      <div className="flex-1 flex gap-3 min-h-0">
+        {/* Left Component Library */}
+        <div className="w-64 bg-[#0e0f13] border border-[#1f222a] rounded-lg p-3 flex flex-col space-y-3 shadow-sm">
+          <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
+              Task Catalog
+            </span>
+            <span className="text-[10px] font-mono text-[#525866]">5 modules</span>
           </div>
 
-          <div className="space-y-2 overflow-y-auto pr-1">
+          <div className="space-y-1.5 overflow-y-auto pr-0.5">
+            {/* Ingest */}
             <button
-              onClick={() => addNode("Validate Invoice CSV", "CSV_VALIDATE", "#3b82f6")}
-              className="w-full flex items-center gap-3 p-3 bg-slate-950/80 hover:bg-slate-800/80 text-slate-200 rounded-xl border border-slate-800 hover:border-blue-500/50 transition text-left group"
+              onClick={() => addNode("Validate CSV File", "CSV_VALIDATE")}
+              className="w-full flex items-center gap-2.5 p-2 bg-[#13151b] hover:bg-[#181a22] text-left rounded-md border border-[#1f222a] hover:border-[#383d4a] transition text-xs font-mono group"
             >
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20">
-                <FileCheck className="w-4 h-4" />
+              <div className="p-1 rounded bg-[#162534] text-[#38bdf8]">
+                <FileCheck className="w-3.5 h-3.5" />
               </div>
               <div>
-                <div className="font-semibold text-xs text-white">CSV Validate</div>
-                <div className="text-[11px] text-slate-500">Inspect schema & rows</div>
+                <div className="font-semibold text-white">CSV Validate</div>
+                <div className="text-[10px] text-[#525866]">Inspect schema & rows</div>
               </div>
             </button>
 
+            {/* Transform */}
             <button
-              onClick={() => addNode("Transform & Normalize", "DATA_TRANSFORM", "#8b5cf6")}
-              className="w-full flex items-center gap-3 p-3 bg-slate-950/80 hover:bg-slate-800/80 text-slate-200 rounded-xl border border-slate-800 hover:border-purple-500/50 transition text-left group"
+              onClick={() => addNode("Cleanse & Format", "DATA_TRANSFORM")}
+              className="w-full flex items-center gap-2.5 p-2 bg-[#13151b] hover:bg-[#181a22] text-left rounded-md border border-[#1f222a] hover:border-[#383d4a] transition text-xs font-mono group"
             >
-              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 group-hover:bg-purple-500/20">
-                <RefreshCw className="w-4 h-4" />
+              <div className="p-1 rounded bg-[#271d3d] text-[#a78bfa]">
+                <RefreshCw className="w-3.5 h-3.5" />
               </div>
               <div>
-                <div className="font-semibold text-xs text-white">Data Transform</div>
-                <div className="text-[11px] text-slate-500">Normalize and cleanse</div>
+                <div className="font-semibold text-white">Data Transform</div>
+                <div className="text-[10px] text-[#525866]">Normalize & cast types</div>
               </div>
             </button>
 
+            {/* Rule Gate */}
             <button
-              onClick={() => addNode("Threshold Check", "CONDITION", "#f59e0b")}
-              className="w-full flex items-center gap-3 p-3 bg-slate-950/80 hover:bg-slate-800/80 text-slate-200 rounded-xl border border-slate-800 hover:border-amber-500/50 transition text-left group"
+              onClick={() => addNode("Threshold Gate", "CONDITION")}
+              className="w-full flex items-center gap-2.5 p-2 bg-[#13151b] hover:bg-[#181a22] text-left rounded-md border border-[#1f222a] hover:border-[#383d4a] transition text-xs font-mono group"
             >
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20">
-                <Split className="w-4 h-4" />
+              <div className="p-1 rounded bg-[#31230c] text-[#e5a93c]">
+                <Split className="w-3.5 h-3.5" />
               </div>
               <div>
-                <div className="font-semibold text-xs text-white">Condition Rule</div>
-                <div className="text-[11px] text-slate-500">Branch on threshold</div>
+                <div className="font-semibold text-white">Condition Rule</div>
+                <div className="text-[10px] text-[#525866]">Branch on threshold</div>
               </div>
             </button>
 
+            {/* Report */}
             <button
-              onClick={() => addNode("Generate Report", "GENERATE_REPORT", "#10b981")}
-              className="w-full flex items-center gap-3 p-3 bg-slate-950/80 hover:bg-slate-800/80 text-slate-200 rounded-xl border border-slate-800 hover:border-emerald-500/50 transition text-left group"
+              onClick={() => addNode("Generate Report", "GENERATE_REPORT")}
+              className="w-full flex items-center gap-2.5 p-2 bg-[#13151b] hover:bg-[#181a22] text-left rounded-md border border-[#1f222a] hover:border-[#383d4a] transition text-xs font-mono group"
             >
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20">
-                <FileText className="w-4 h-4" />
+              <div className="p-1 rounded bg-[#102919] text-[#10b981]">
+                <FileText className="w-3.5 h-3.5" />
               </div>
               <div>
-                <div className="font-semibold text-xs text-white">Generate Report</div>
-                <div className="text-[11px] text-slate-500">Write report to MinIO S3</div>
+                <div className="font-semibold text-white">Generate Report</div>
+                <div className="text-[10px] text-[#525866]">Write JSON to MinIO</div>
               </div>
             </button>
 
+            {/* Email */}
             <button
-              onClick={() => addNode("Send Email Notice", "SEND_EMAIL", "#06b6d4")}
-              className="w-full flex items-center gap-3 p-3 bg-slate-950/80 hover:bg-slate-800/80 text-slate-200 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition text-left group"
+              onClick={() => addNode("Send Email Alert", "SEND_EMAIL")}
+              className="w-full flex items-center gap-2.5 p-2 bg-[#13151b] hover:bg-[#181a22] text-left rounded-md border border-[#1f222a] hover:border-[#383d4a] transition text-xs font-mono group"
             >
-              <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20">
-                <Mail className="w-4 h-4" />
+              <div className="p-1 rounded bg-[#112d35] text-[#06b6d4]">
+                <Mail className="w-3.5 h-3.5" />
               </div>
               <div>
-                <div className="font-semibold text-xs text-white">Send Email</div>
-                <div className="text-[11px] text-slate-500">Mailpit SMTP delivery</div>
+                <div className="font-semibold text-white">Send Email</div>
+                <div className="text-[10px] text-[#525866]">Mailpit SMTP socket</div>
               </div>
             </button>
           </div>
 
-          <div className="mt-auto p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-400 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-300">
-              <Info className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Canvas Instructions</span>
+          <div className="mt-auto p-2.5 bg-[#13151b] border border-[#1f222a] rounded-md text-[11px] font-mono text-[#525866] space-y-1">
+            <div className="flex items-center gap-1.5 text-[#8b949e]">
+              <Info className="w-3 h-3 text-[#e5a93c]" />
+              <span className="font-semibold">Execution Semantics</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Drag from circle handles to connect steps. When executing, the Orchestrator runs children only after all upstream dependencies succeed.
+            <p className="leading-relaxed">
+              Orchestrator schedules child nodes only when upstream dependencies succeed.
             </p>
           </div>
         </div>
 
-        {/* React Flow Visual Canvas */}
-        <div className="flex-1 bg-[#090d18] border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl">
+        {/* React Flow Canvas */}
+        <div className="flex-1 bg-[#090a0d] border border-[#1f222a] rounded-lg overflow-hidden relative shadow-inner">
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={(_, node) => setSelectedNode(node)}
             fitView
           >
-            <Background color="#1e293b" variant={BackgroundVariant.Dots} gap={20} size={1} />
-            <Controls className="bg-slate-900 border-slate-800" />
+            <Background color="#1f222a" variant={BackgroundVariant.Dots} gap={18} size={1} />
+            <Controls className="bg-[#0e0f13] border-[#1f222a]" />
             <MiniMap
-              nodeColor="#6366f1"
-              maskColor="rgba(7, 11, 20, 0.8)"
-              className="bg-slate-900 border-slate-800 rounded-xl"
+              nodeColor="#e5a93c"
+              maskColor="rgba(9, 10, 13, 0.85)"
+              className="bg-[#0e0f13] border-[#1f222a] rounded-md"
             />
           </ReactFlow>
 
           {/* Node Inspector Drawer */}
           {selectedNode && (
-            <div className="absolute top-4 right-4 w-80 bg-slate-900/95 backdrop-blur-md border border-slate-800 p-5 rounded-2xl shadow-2xl space-y-4 text-xs animate-in slide-in-from-right-4 transition">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-indigo-400" />
+            <div className="absolute top-3 right-3 w-72 bg-[#0e0f13]/95 border border-[#23262f] p-4 rounded-lg shadow-xl space-y-3 text-xs font-mono animate-in slide-in-from-right-4 transition">
+              <div className="flex items-center justify-between border-b border-[#1f222a] pb-2">
+                <div className="flex items-center gap-1.5">
+                  <Settings className="w-3.5 h-3.5 text-[#e5a93c]" />
                   <span className="font-bold text-white uppercase tracking-wider text-[11px]">Node Inspector</span>
                 </div>
                 <button
                   onClick={() => setSelectedNode(null)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-0.5 hover:bg-[#161820] rounded text-[#8b949e] hover:text-white"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Node ID</label>
-                  <p className="font-mono text-slate-200 bg-slate-950 p-2 rounded-xl mt-1 border border-slate-800">
+                  <label className="text-[10px] font-bold text-[#525866] uppercase">Node Identifier</label>
+                  <p className="text-[#ededed] bg-[#13151b] p-1.5 rounded mt-0.5 border border-[#1f222a]">
                     {selectedNode.id}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Display Label</label>
+                  <label className="text-[10px] font-bold text-[#525866] uppercase">Display Label</label>
                   <input
                     type="text"
                     value={String(selectedNode.data?.label || "")}
@@ -517,13 +631,13 @@ export default function WorkflowEditorPage() {
                       );
                       setSelectedNode({ ...selectedNode, data: { ...selectedNode.data, label: newLabel } });
                     }}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl p-2 text-white outline-none mt-1 transition"
+                    className="w-full bg-[#13151b] border border-[#1f222a] focus:border-[#383d4a] rounded p-1.5 text-white outline-none mt-0.5 transition"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Task Type</label>
-                  <div className="font-mono text-indigo-400 bg-slate-950 p-2 rounded-xl mt-1 border border-slate-800">
+                  <label className="text-[10px] font-bold text-[#525866] uppercase">Task Type</label>
+                  <div className="text-[#e5a93c] bg-[#13151b] p-1.5 rounded mt-0.5 border border-[#1f222a]">
                     {String(selectedNode.data?.taskType || "TASK")}
                   </div>
                 </div>
@@ -535,41 +649,41 @@ export default function WorkflowEditorPage() {
                   setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
                   setSelectedNode(null);
                 }}
-                className="w-full flex items-center justify-center gap-2 p-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 text-rose-300 rounded-xl font-semibold transition"
+                className="w-full flex items-center justify-center gap-1.5 p-2 bg-[#250e12] hover:bg-[#341419] border border-[#441920] text-[#f43f5e] rounded font-medium transition"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Node</span>
+                <Trash2 className="w-3 h-3" />
+                <span>Remove Node</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Run Pipeline Modal */}
+      {/* Quick Run Modal */}
       {showRunModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                  <Play className="w-4 h-4 fill-emerald-400" />
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#0e0f13] border border-[#23262f] rounded-lg max-w-lg w-full p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1f222a]">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded bg-[#161820] border border-[#2b2f3a] text-[#e5a93c] flex items-center justify-center font-mono text-xs">
+                  <Play className="w-3 h-3 fill-[#e5a93c]" />
                 </div>
-                <h2 className="text-base font-bold text-white">Execute Invoice Pipeline</h2>
+                <h2 className="text-sm font-semibold text-white font-mono">Execute Pipeline</h2>
               </div>
               <button
                 onClick={() => setShowRunModal(false)}
-                className="text-slate-400 hover:text-white text-xs"
+                className="text-[#8b949e] hover:text-white text-xs font-mono"
               >
-                Cancel
+                esc
               </button>
             </div>
 
             <form onSubmit={handleExecute} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Upload Invoice CSV (MinIO Storage)
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-[#8b949e]">
+                  Upload CSV File (MinIO S3)
                 </label>
-                <div className="border-2 border-dashed border-slate-800 hover:border-indigo-500/60 rounded-xl p-5 text-center bg-slate-950 cursor-pointer transition">
+                <div className="border border-dashed border-[#23262f] hover:border-[#383d4a] rounded-md p-4 text-center bg-[#13151b] cursor-pointer transition">
                   <input
                     type="file"
                     accept=".csv"
@@ -577,43 +691,43 @@ export default function WorkflowEditorPage() {
                     className="hidden"
                     onChange={(e) => setRunFile(e.target.files ? e.target.files[0] : null)}
                   />
-                  <label htmlFor="run-csv-file" className="cursor-pointer space-y-2 block">
-                    <UploadCloud className="w-8 h-8 text-indigo-400 mx-auto" />
-                    <div className="text-xs font-semibold text-slate-200">
-                      {runFile ? runFile.name : "Select or Drop CSV file"}
+                  <label htmlFor="run-csv-file" className="cursor-pointer space-y-1 block">
+                    <UploadCloud className="w-5 h-5 text-[#8b949e] mx-auto" />
+                    <div className="text-xs font-mono text-[#ededed]">
+                      {runFile ? runFile.name : "Select CSV to upload"}
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      {runFile ? `${(runFile.size / 1024).toFixed(1)} KB` : "Leave empty to use sample invoice dataset"}
+                    <div className="text-[10px] font-mono text-[#525866]">
+                      {runFile ? `${(runFile.size / 1024).toFixed(1)} KB` : "Leave empty to use sample invoice data"}
                     </div>
                   </label>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-[#8b949e]">
                   Threshold Value ($)
                 </label>
                 <input
                   type="number"
                   value={runThreshold}
                   onChange={(e) => setRunThreshold(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
+                  className="w-full bg-[#13151b] border border-[#1f222a] rounded-md px-3 py-1.5 text-xs font-mono text-white outline-none"
                   placeholder="10000"
                 />
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#1f222a]">
                 <button
                   type="button"
                   onClick={() => setShowRunModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-3 py-1.5 text-xs font-mono text-[#8b949e] hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isRunning}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-900/30"
+                  className="px-4 py-1.5 bg-white hover:bg-[#e4e4e7] text-black text-xs font-mono font-semibold rounded-md transition flex items-center gap-1.5"
                 >
                   {isRunning ? (
                     <>
@@ -622,7 +736,7 @@ export default function WorkflowEditorPage() {
                     </>
                   ) : (
                     <>
-                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <Play className="w-3.5 h-3.5 fill-black" />
                       <span>Dispatch Execution</span>
                     </>
                   )}

@@ -10,13 +10,13 @@ import {
   Clock,
   RefreshCw,
   Search,
-  Filter,
   Play,
   RotateCcw,
   Ban,
   ChevronRight,
-  Database,
-  Layers
+  Server,
+  Layers,
+  HardDrive
 } from "lucide-react";
 
 const WORKSPACE_ID = "e7c051b5-e677-4724-a98a-4179cd14d0cf";
@@ -70,79 +70,79 @@ export default function ExecutionsPage() {
   const runningCount = executions.filter((e) => e.status === "RUNNING").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#0e0f13] border border-[#1f222a] p-4 rounded-lg shadow-sm">
+        <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition"
+            className="p-1.5 bg-[#161820] hover:bg-[#1f222c] rounded-md border border-[#2b2f3a] text-[#8b949e] hover:text-white transition"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white">Execution Telemetry</h1>
-              <span className="text-xs font-mono uppercase bg-emerald-950 text-emerald-400 border border-emerald-800/80 px-2.5 py-0.5 rounded-full">
-                Live SSE + Redis
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-semibold text-white font-mono">Execution Telemetry Ledger</h1>
+              <span className="text-[10px] font-mono uppercase bg-[#0d1f14] text-[#10b981] border border-[#163821] px-1.5 py-0.5 rounded">
+                Live SSE
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Real-time audit log of distributed DAG executions, task retries, and artifact generations.
+            <p className="text-[11px] text-[#525866] font-mono mt-0.5">
+              Historical audit log of distributed DAG executions, task retries, and generated S3 reports.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={fetchExecutions}
-            className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-[#ededed] rounded-md text-xs font-mono transition"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
           </button>
           <Link
             href="/"
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-900/30 transition"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-[#e4e4e7] text-black rounded-md text-xs font-mono font-semibold transition"
           >
-            <Play className="w-3.5 h-3.5 fill-white" />
-            <span>New Execution</span>
+            <Play className="w-3.5 h-3.5 fill-black" />
+            <span>Trigger Run</span>
           </Link>
         </div>
       </div>
 
-      {/* Stats Summary Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Executions</span>
-          <p className="text-2xl font-bold text-white mt-1">{executions.length}</p>
+      {/* Summary Counters Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Total Runs</span>
+          <p className="text-xl font-mono font-bold text-white">{executions.length}</p>
         </div>
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Completed</span>
-          <p className="text-2xl font-bold text-emerald-400 mt-1">{completedCount}</p>
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Completed (SLA)</span>
+          <p className="text-xl font-mono font-bold text-[#10b981]">{completedCount}</p>
         </div>
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Running</span>
-          <p className="text-2xl font-bold text-indigo-400 mt-1">{runningCount}</p>
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Active In-Flight</span>
+          <p className="text-xl font-mono font-bold text-[#e5a93c]">{runningCount}</p>
         </div>
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Failed</span>
-          <p className="text-2xl font-bold text-rose-400 mt-1">{failedCount}</p>
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Failed Tasks</span>
+          <p className="text-xl font-mono font-bold text-[#f43f5e]">{failedCount}</p>
         </div>
       </div>
 
-      {/* Toolbar: Filters & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      {/* Filters & Search Toolbar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#0e0f13] border border-[#1f222a] p-3 rounded-lg">
         {/* Status Filter Buttons */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1">
           {["ALL", "COMPLETED", "RUNNING", "FAILED", "CANCELLED"].map((st) => (
             <button
               key={st}
               onClick={() => setFilterStatus(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`px-2.5 py-1 rounded text-xs font-mono transition ${
                 filterStatus === st
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "bg-slate-950 text-slate-400 hover:text-white border border-slate-800"
+                  ? "bg-[#1f222c] text-white font-semibold"
+                  : "bg-[#13151b] text-[#8b949e] hover:text-[#ededed] border border-[#1f222a]"
               }`}
             >
               {st}
@@ -151,75 +151,86 @@ export default function ExecutionsPage() {
         </div>
 
         {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+        <div className="relative w-full sm:w-64">
+          <Search className="w-3.5 h-3.5 text-[#525866] absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search by Execution ID..."
+            placeholder="Search Execution ID..."
             value={searchId}
             onChange={(e) => setSearchId(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none transition"
+            className="w-full bg-[#13151b] border border-[#1f222a] focus:border-[#383d4a] rounded-md pl-8 pr-3 py-1.5 text-xs font-mono text-white placeholder-[#525866] outline-none transition"
           />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      {/* Telemetry Table */}
+      <div className="bg-[#0e0f13] border border-[#1f222a] rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-mono tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs font-mono">
+            <thead className="bg-[#090a0d] border-b border-[#1f222a] text-[#525866] uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="px-5 py-3.5">Execution ID</th>
-                <th className="px-5 py-3.5">Status</th>
-                <th className="px-5 py-3.5">Trigger</th>
-                <th className="px-5 py-3.5">Started At</th>
-                <th className="px-5 py-3.5">Duration</th>
-                <th className="px-5 py-3.5 text-right">Inspection</th>
+                <th className="px-4 py-2.5">Execution Hash</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">Trigger Origin</th>
+                <th className="px-4 py-2.5">Started At</th>
+                <th className="px-4 py-2.5">Duration</th>
+                <th className="px-4 py-2.5 text-right">Inspection</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80">
+            <tbody className="divide-y divide-[#181a20]">
               {filtered.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-800/40 transition">
-                  <td className="px-5 py-3.5 font-mono text-slate-200">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                      <span className="font-semibold">{item.id.slice(0, 8)}</span>
-                      <span className="text-slate-500">...{item.id.slice(-4)}</span>
+                <tr key={item.id} className="hover:bg-[#13151b] transition">
+                  <td className="px-4 py-2.5 text-[#ededed]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[#8b949e]">#</span>
+                      <span className="font-semibold text-white">{item.id.slice(0, 8)}</span>
+                      <span className="text-[#525866]">...{item.id.slice(-4)}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-4 py-2.5">
                     <span
-                      className={`text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full font-semibold border ${
+                      className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 w-fit ${
                         item.status === "COMPLETED"
-                          ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/80"
+                          ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
                           : item.status === "FAILED"
-                          ? "bg-rose-950/80 text-rose-400 border-rose-800/80"
+                          ? "bg-[#250e12] text-[#f43f5e] border-[#441920]"
                           : item.status === "CANCELLED"
-                          ? "bg-slate-800 text-slate-400 border-slate-700"
-                          : "bg-indigo-950 text-indigo-400 border-indigo-800 animate-pulse"
+                          ? "bg-[#181a20] text-[#8b949e] border-[#23262f]"
+                          : "bg-[#221706] text-[#e5a93c] border-[#38260a] animate-pulse"
                       }`}
                     >
-                      {item.status}
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          item.status === "COMPLETED"
+                            ? "bg-[#10b981]"
+                            : item.status === "FAILED"
+                            ? "bg-[#f43f5e]"
+                            : item.status === "CANCELLED"
+                            ? "bg-[#8b949e]"
+                            : "bg-[#e5a93c]"
+                        }`}
+                      ></span>
+                      <span>{item.status}</span>
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 font-mono text-slate-400">
-                    {item.triggerType || "MANUAL"}
+                  <td className="px-4 py-2.5 text-[#8b949e]">
+                    {item.triggerType || "MANUAL_DISPATCH"}
                   </td>
-                  <td className="px-5 py-3.5 text-slate-400">
+                  <td className="px-4 py-2.5 text-[#525866]">
                     {item.startedAt ? new Date(item.startedAt).toLocaleString() : "Just now"}
                   </td>
-                  <td className="px-5 py-3.5 font-mono text-slate-400">
+                  <td className="px-4 py-2.5 text-[#8b949e]">
                     {item.finishedAt && item.startedAt
                       ? `${((new Date(item.finishedAt).getTime() - new Date(item.startedAt).getTime()) / 1000).toFixed(2)}s`
-                      : "6.42s"}
+                      : "0.42s"}
                   </td>
-                  <td className="px-5 py-3.5 text-right">
+                  <td className="px-4 py-2.5 text-right">
                     <Link
                       href={`/executions/${item.id}`}
-                      className="inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 font-semibold"
+                      className="inline-flex items-center gap-1 text-[#8b949e] hover:text-white transition font-medium"
                     >
-                      <span>Open Live Trace</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      <span>Live Trace</span>
+                      <ChevronRight className="w-3 h-3" />
                     </Link>
                   </td>
                 </tr>

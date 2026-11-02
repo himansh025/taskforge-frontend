@@ -17,10 +17,8 @@ import {
   HardDrive,
   Copy,
   ExternalLink,
-  Cpu,
-  Layers,
-  Sparkles,
-  Activity
+  Activity,
+  Layers
 } from "lucide-react";
 
 interface TaskStep {
@@ -199,7 +197,6 @@ export default function ExecutionViewPage() {
   const isCancelled = execution?.status === "CANCELLED";
   const isRunning = !isCompleted && !isFailed && !isCancelled;
 
-  // Extract report URL if available from outputPayload
   let reportArtifactUrl: string | null = null;
   if (execution?.outputPayload) {
     try {
@@ -220,162 +217,171 @@ export default function ExecutionViewPage() {
   const selectedStep = tasks[activeStepIndex] || null;
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-        <div className="flex items-center gap-4">
+    <div className="space-y-4">
+      {/* Telemetry Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#0e0f13] border border-[#1f222a] p-4 rounded-lg shadow-sm">
+        <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition"
+            className="p-1.5 bg-[#161820] hover:bg-[#1f222c] rounded-md border border-[#2b2f3a] text-[#8b949e] hover:text-white transition"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
+
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-semibold text-white font-mono flex items-center gap-1.5">
                 <span>Execution</span>
-                <span className="font-mono text-indigo-400 font-semibold">#{executionId ? executionId.slice(0, 8) : "run"}</span>
+                <span className="text-[#e5a93c]">#{executionId ? executionId.slice(0, 8) : "run"}</span>
               </h1>
+
               <button
                 onClick={copyExecutionId}
                 title="Copy Full UUID"
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 transition"
+                className="p-1 hover:bg-[#161820] rounded text-[#8b949e] hover:text-[#ededed] transition"
               >
-                <Copy className="w-3.5 h-3.5" />
+                <Copy className="w-3 h-3" />
               </button>
-              {copiedId && <span className="text-[10px] text-emerald-400 font-mono">Copied!</span>}
+              {copiedId && <span className="text-[10px] text-[#10b981] font-mono">copied</span>}
 
-              {/* Status Badge */}
+              {/* Status Pill */}
               <span
-                className={`text-xs px-3 py-1 rounded-full font-mono font-semibold uppercase tracking-wider border flex items-center gap-1.5 ${
-                  isRunning
-                    ? "bg-indigo-950 text-indigo-300 border-indigo-800 animate-pulse shadow-lg shadow-indigo-900/30"
+                className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 ${
+                  isCompleted
+                    ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
                     : isFailed
-                    ? "bg-rose-950 text-rose-300 border-rose-800/80 shadow-lg shadow-rose-900/30"
+                    ? "bg-[#250e12] text-[#f43f5e] border-[#441920]"
                     : isCancelled
-                    ? "bg-slate-800 text-slate-400 border-slate-700"
-                    : "bg-emerald-950 text-emerald-300 border-emerald-800/80 shadow-lg shadow-emerald-900/30"
+                    ? "bg-[#181a20] text-[#8b949e] border-[#23262f]"
+                    : "bg-[#221706] text-[#e5a93c] border-[#38260a] animate-pulse"
                 }`}
               >
                 <span
-                  className={`w-2 h-2 rounded-full ${
-                    isRunning
-                      ? "bg-indigo-400 animate-ping"
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isCompleted
+                      ? "bg-[#10b981]"
                       : isFailed
-                      ? "bg-rose-400"
+                      ? "bg-[#f43f5e]"
                       : isCancelled
-                      ? "bg-slate-400"
-                      : "bg-emerald-400"
+                      ? "bg-[#8b949e]"
+                      : "bg-[#e5a93c]"
                   }`}
                 ></span>
                 <span>{execution?.status || (isRunning ? "RUNNING" : "COMPLETED")}</span>
               </span>
             </div>
 
-            <p className="text-xs text-slate-400 mt-1 font-mono">
-              Workflow: {execution?.workflowId || executionId} • Distributed Orchestrator DAG Engine
+            <p className="text-[11px] text-[#525866] font-mono mt-0.5">
+              Pipeline: {execution?.workflowId || executionId} &bull; Kafka Outbox + Redis Stream
             </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2">
           {isRunning && (
             <button
               onClick={handleCancel}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-300 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 rounded-xl transition shadow-lg shadow-rose-950/40"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[#f43f5e] bg-[#250e12] hover:bg-[#341419] border border-[#441920] rounded-md transition"
             >
-              <Ban className="w-4 h-4" />
-              <span>Cancel Execution</span>
+              <Ban className="w-3.5 h-3.5" />
+              <span>Cancel Run</span>
             </button>
           )}
 
           {isFailed && (
             <button
               onClick={handleRetry}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-amber-300 bg-amber-950/80 hover:bg-amber-900 border border-amber-800/80 rounded-xl transition shadow-lg shadow-amber-950/40"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[#e5a93c] bg-[#221706] hover:bg-[#31230c] border border-[#38260a] rounded-md transition"
             >
-              <RotateCcw className="w-4 h-4" />
-              <span>Retry Failed Nodes</span>
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Retry Nodes</span>
             </button>
           )}
 
           <Link
             href={`/workflows/${execution?.workflowId || executionId}/edit`}
-            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition"
+            className="flex items-center gap-1 px-3 py-1.5 bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-white text-xs font-mono rounded-md transition"
           >
-            <span>Edit DAG</span>
+            <span>Edit Canvas</span>
           </Link>
         </div>
       </div>
 
-      {/* 4 Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Nodes</span>
-          <p className="text-2xl font-bold text-white mt-1">{tasks.length || 5}</p>
-        </div>
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Completed</span>
-          <p className="text-2xl font-bold text-emerald-400 mt-1">
-            {tasks.filter((t) => t.status === "COMPLETED").length}
+      {/* Telemetry Summary Counters */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Nodes Satisfied</span>
+          <p className="text-xl font-mono font-bold text-white">
+            {tasks.filter((t) => t.status === "COMPLETED").length} / {tasks.length || 5}
           </p>
         </div>
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Engine Dispatch</span>
-          <p className="text-lg font-bold text-indigo-400 mt-1 font-mono">Kafka Outbox</p>
+
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Execution Phase</span>
+          <p className="text-base font-mono font-bold text-[#e5a93c] truncate">
+            {isCompleted ? "All Tasks Done" : isFailed ? "Halted on Error" : "Kafka Dispatched"}
+          </p>
         </div>
-        <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Live Stream</span>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span className="text-xs font-mono text-emerald-400">Redis SSE Connected</span>
+
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Live Stream Channel</span>
+          <div className="flex items-center gap-1.5 pt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
+            <span className="text-xs font-mono text-[#ededed]">Redis Pub/Sub</span>
           </div>
+        </div>
+
+        <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Artifact Engine</span>
+          <p className="text-sm font-mono text-[#8b949e] truncate pt-0.5">
+            MinIO S3 Connected
+          </p>
         </div>
       </div>
 
       {/* Main Execution Split View: Left Steps Timeline, Right Inspector & Logs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Steps Timeline (2 Columns) */}
-        <div className="lg:col-span-2 bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              DAG Step Execution Timeline
-            </h2>
-            <span className="text-[11px] text-slate-500 font-mono">
-              Click any step to inspect payload
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        {/* Step Sequence Rail (7 Columns) */}
+        <div className="lg:col-span-7 bg-[#0e0f13] border border-[#1f222a] rounded-lg p-4 space-y-3 shadow-sm">
+          <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
+              DAG Step Sequence Timeline
+            </span>
+            <span className="text-[10px] font-mono text-[#525866]">
+              Click any node to inspect payload
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {tasks.map((step, idx) => {
               const isSelected = activeStepIndex === idx;
               return (
                 <div
                   key={step.id || step.nodeId}
                   onClick={() => setActiveStepIndex(idx)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                  className={`p-3 rounded-md border transition cursor-pointer flex items-center justify-between text-xs font-mono ${
                     isSelected
-                      ? "bg-slate-800/90 border-indigo-500 shadow-lg shadow-indigo-500/10"
-                      : "bg-slate-950/60 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700"
+                      ? "bg-[#161820] border-[#e5a93c]"
+                      : "bg-[#111216] border-[#1f222a] hover:bg-[#14161d] hover:border-[#2f3340]"
                   }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div
-                      className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs ${
+                      className={`h-7 w-7 rounded flex items-center justify-center font-bold text-xs ${
                         step.status === "COMPLETED"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                          ? "bg-[#0d1f14] text-[#10b981] border border-[#163821]"
                           : step.status === "RUNNING"
-                          ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 animate-pulse"
+                          ? "bg-[#221706] text-[#e5a93c] border border-[#38260a] animate-pulse"
                           : step.status === "FAILED"
-                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
-                          : "bg-slate-800 text-slate-500"
+                          ? "bg-[#250e12] text-[#f43f5e] border border-[#441920]"
+                          : "bg-[#161820] text-[#525866]"
                       }`}
                     >
                       {step.status === "COMPLETED" ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
                       ) : step.status === "FAILED" ? (
-                        <AlertCircle className="w-4 h-4 text-rose-400" />
+                        <AlertCircle className="w-3.5 h-3.5 text-[#f43f5e]" />
                       ) : (
                         <span>{idx + 1}</span>
                       )}
@@ -383,19 +389,19 @@ export default function ExecutionViewPage() {
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-white">{step.nodeId}</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                        <span className="font-semibold text-white">{step.nodeId}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#161820] text-[#8b949e] border border-[#23262f]">
                           {step.taskType}
                         </span>
                         {step.currentAttempt && step.currentAttempt > 1 && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800">
-                            Attempt {step.currentAttempt}
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#221706] text-[#e5a93c] border border-[#38260a]">
+                            att {step.currentAttempt}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-1 font-mono">
+                      <p className="text-[11px] text-[#525866] mt-0.5 truncate max-w-sm">
                         {step.errorMessage ? (
-                          <span className="text-rose-400 font-semibold">{step.errorMessage}</span>
+                          <span className="text-[#f43f5e]">{step.errorMessage}</span>
                         ) : step.outputSummary ? (
                           step.outputSummary
                         ) : (
@@ -405,10 +411,10 @@ export default function ExecutionViewPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-slate-400">{step.duration || "0.28s"}</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[11px] text-[#8b949e]">{step.duration || "0.28s"}</span>
                     <ChevronRight
-                      className={`w-4 h-4 transition ${isSelected ? "text-indigo-400 translate-x-1" : "text-slate-600"}`}
+                      className={`w-3.5 h-3.5 transition ${isSelected ? "text-[#e5a93c] translate-x-0.5" : "text-[#525866]"}`}
                     />
                   </div>
                 </div>
@@ -417,58 +423,54 @@ export default function ExecutionViewPage() {
           </div>
         </div>
 
-        {/* Step Inspector & Logs (1 Column) */}
-        <div className="space-y-6">
-          {/* Generated MinIO Artifact Box */}
+        {/* Inspector & Live Console (5 Columns) */}
+        <div className="lg:col-span-5 space-y-3">
+          {/* MinIO Artifact Download Widget */}
           {reportArtifactUrl && (
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Generated Artifact
-                </span>
-                <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800/60">
-                  MinIO S3
+            <div className="bg-[#0e0f13] border border-[#1f222a] rounded-lg p-3 space-y-2 shadow-sm">
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="font-bold text-[#8b949e] uppercase">Generated S3 Object</span>
+                <span className="text-[10px] text-[#10b981] bg-[#0d1f14] px-1.5 py-0.5 rounded border border-[#163821]">
+                  MinIO Storage
                 </span>
               </div>
               <a
                 href={reportArtifactUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-between p-3.5 bg-emerald-950/40 border border-emerald-800/60 hover:bg-emerald-900/50 rounded-xl text-emerald-300 text-xs font-semibold transition group shadow-sm"
+                className="flex items-center justify-between p-2.5 bg-[#111a14] border border-[#1a3824] hover:bg-[#16251b] rounded-md text-xs font-mono text-[#10b981] transition group"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
-                    <HardDrive className="w-4 h-4" />
-                  </div>
+                <div className="flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-[#10b981]" />
                   <div>
                     <div className="font-semibold text-white">Execution Audit Report</div>
-                    <div className="text-[11px] text-emerald-400/80 font-mono mt-0.5">report-*.json</div>
+                    <div className="text-[10px] text-[#525866]">report-*.json</div>
                   </div>
                 </div>
-                <ExternalLink className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition" />
+                <ExternalLink className="w-3.5 h-3.5 text-[#10b981] group-hover:translate-x-0.5 transition" />
               </a>
             </div>
           )}
 
-          {/* Node Output / Input Inspector */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Node Payload Inspector
+          {/* Node Payload Inspector */}
+          <div className="bg-[#0e0f13] border border-[#1f222a] rounded-lg p-3 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
+                Payload Inspector: {selectedStep?.nodeId || "Node"}
               </span>
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+              <div className="flex items-center gap-1 bg-[#13151b] p-0.5 rounded border border-[#1f222a] text-[10px] font-mono">
                 <button
                   onClick={() => setActivePayloadTab("output")}
-                  className={`px-2.5 py-0.5 rounded font-semibold transition ${
-                    activePayloadTab === "output" ? "bg-indigo-600 text-white" : "text-slate-400"
+                  className={`px-2 py-0.5 rounded font-semibold transition ${
+                    activePayloadTab === "output" ? "bg-[#1f222c] text-white" : "text-[#525866]"
                   }`}
                 >
                   Output
                 </button>
                 <button
                   onClick={() => setActivePayloadTab("input")}
-                  className={`px-2.5 py-0.5 rounded font-semibold transition ${
-                    activePayloadTab === "input" ? "bg-indigo-600 text-white" : "text-slate-400"
+                  className={`px-2 py-0.5 rounded font-semibold transition ${
+                    activePayloadTab === "input" ? "bg-[#1f222c] text-white" : "text-[#525866]"
                   }`}
                 >
                   Input
@@ -476,8 +478,8 @@ export default function ExecutionViewPage() {
               </div>
             </div>
 
-            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-56">
-              <pre className="whitespace-pre-wrap break-all">
+            <div className="bg-[#090a0d] p-3 rounded-md border border-[#1f222a] text-[11px] font-mono text-[#ededed] overflow-x-auto max-h-48">
+              <pre className="whitespace-pre-wrap break-all text-[#8b949e]">
                 {activePayloadTab === "output"
                   ? selectedStep?.outputPayload
                     ? JSON.stringify(JSON.parse(selectedStep.outputPayload), null, 2)
@@ -498,31 +500,31 @@ export default function ExecutionViewPage() {
           </div>
 
           {/* Real-Time Live Logs Terminal */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Live Redis Stream
+          <div className="bg-[#0e0f13] border border-[#1f222a] rounded-lg p-3 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
+              <div className="flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5 text-[#525866]" />
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
+                  Redis Pub/Sub Stream
                 </span>
               </div>
-              <span className="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-2.5 py-0.5 rounded-full font-mono">
-                PUB/SUB
+              <span className="text-[10px] font-mono text-[#10b981] bg-[#0d1f14] border border-[#163821] px-1.5 py-0.5 rounded">
+                LIVE SSE
               </span>
             </div>
 
-            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300 space-y-1.5 h-64 overflow-y-auto">
-              <p className="text-slate-500">[System] Initialized Redis Pub/Sub progress channel</p>
-              <p className="text-indigo-400">[Orchestrator] Execution correlation: {executionId}</p>
-              <p className="text-blue-400">[Kafka] Received event on task.requested.v1</p>
+            <div className="bg-[#090a0d] p-3 rounded-md border border-[#1f222a] text-[11px] font-mono text-[#ededed] space-y-1 h-56 overflow-y-auto">
+              <p className="text-[#525866]">[SYS] Subscribed to execution progress channel</p>
+              <p className="text-[#8b949e]">[ORCH] Correlating execution ID: {executionId}</p>
+              <p className="text-[#8b949e]">[KAFKA] Task dispatched to topic task.requested.v1</p>
               {logs.map((log, i) => (
-                <p key={i} className="text-emerald-300">
+                <p key={i} className="text-[#ededed]">
                   {log}
                 </p>
               ))}
               {isCompleted && (
-                <p className="text-emerald-400 font-bold">
-                  [Orchestrator] All DAG tasks satisfied. Execution finished successfully.
+                <p className="text-[#10b981] font-semibold">
+                  [ORCH] All DAG tasks satisfied. Execution finished successfully.
                 </p>
               )}
               <div ref={terminalEndRef} />

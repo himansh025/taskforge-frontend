@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -25,14 +25,14 @@ import {
   Activity,
   Sliders
 } from "lucide-react";
-
-const WORKSPACE_ID = "e7c051b5-e677-4724-a98a-4179cd14d0cf";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 interface WorkflowItem {
   id: string;
   name: string;
   description: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  draftDefinition?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +49,9 @@ interface ExecutionItem {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { currentWorkspace, setWorkflowCount, telemetry } = useWorkspace();
+  const workspaceId = currentWorkspace?.id || "e7c051b5-e677-4724-a98a-4179cd14d0cf";
+
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [executions, setExecutions] = useState<ExecutionItem[]>([]);
   const [activeTab, setActiveTab] = useState<"pipelines" | "runs">("pipelines");
@@ -70,20 +73,22 @@ export default function DashboardPage() {
   const [runThreshold, setRunThreshold] = useState("10000");
   const [isRunningPipeline, setIsRunningPipeline] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!workspaceId) return;
     try {
       setIsLoading(true);
       const [wfRes, execRes] = await Promise.all([
-        fetch(`/api/v1/workspaces/${WORKSPACE_ID}/workflows`),
-        fetch(`/api/v1/workspaces/${WORKSPACE_ID}/executions`),
+        fetch(`/api/v1/workspaces/${workspaceId}/workflows`),
+        fetch(`/api/v1/workspaces/${workspaceId}/executions`),
       ]);
 
       if (wfRes.ok) {
-        const wfData = await wfRes.json();
+        const wfData: WorkflowItem[] = await wfRes.json();
         setWorkflows(wfData);
+        setWorkflowCount(wfData.length);
       }
       if (execRes.ok) {
-        const execData = await execRes.json();
+        const execData: ExecutionItem[] = await execRes.json();
         setExecutions(execData);
       }
     } catch (e) {
@@ -91,11 +96,11 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [workspaceId, setWorkflowCount]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleCreateWorkflow = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +108,7 @@ export default function DashboardPage() {
 
     try {
       setIsSubmitting(true);
-      const res = await fetch(`/api/v1/workspaces/${WORKSPACE_ID}/workflows`, {
+      const res = await fetch(`/api/v1/workspaces/${workspaceId}/workflows`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -133,12 +138,12 @@ export default function DashboardPage() {
 
     try {
       setIsRunningPipeline(true);
-      let artifactKey = "workspaces/e7c051b5-e677-4724-a98a-4179cd14d0cf/uploads/sample-invoices.csv";
+      let artifactKey = `workspaces/${workspaceId}/uploads/sample-invoices.csv`;
 
       if (runFile) {
         const formData = new FormData();
         formData.append("file", runFile);
-        const uploadRes = await fetch(`/api/v1/workspaces/${WORKSPACE_ID}/uploads`, {
+        const uploadRes = await fetch(`/api/v1/workspaces/${workspaceId}/uploads`, {
           method: "POST",
           body: formData,
         });
@@ -177,6 +182,32 @@ export default function DashboardPage() {
     setTimeout(() => setCopiedWfId(null), 2000);
   };
 
+  const getTopologySummary = (draftDef?: string) => {
+    if (!draftDef) {
+      return { taskCount: 5, conditions: 1, hasMinio: true, hasEmail: true, hasCsv: true };
+    }
+    try {
+      const parsed = JSON.parse(draftDef);
+      const nodes = parsed.nodes || [];
+      const taskCount = nodes.length || 0;
+      const conditions = nodes.filter(
+        (n: any) => n.type === "CONDITION" || n.data?.taskType === "CONDITION"
+      ).length;
+      const hasMinio = nodes.some(
+        (n: any) => n.type === "GENERATE_REPORT" || n.data?.taskType === "GENERATE_REPORT"
+      );
+      const hasEmail = nodes.some(
+        (n: any) => n.type === "SEND_EMAIL" || n.data?.taskType === "SEND_EMAIL"
+      );
+      const hasCsv = nodes.some(
+        (n: any) => n.type === "CSV_VALIDATE" || n.data?.taskType === "CSV_VALIDATE"
+      );
+      return { taskCount, conditions, hasMinio, hasEmail, hasCsv };
+    } catch (e) {
+      return { taskCount: 0, conditions: 0, hasMinio: false, hasEmail: false, hasCsv: false };
+    }
+  };
+
   const filteredWorkflows = workflows.filter((w) =>
     w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     w.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -191,13 +222,15 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#1c1e24]">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-white tracking-tight">Workflows & DAG Pipelines</h1>
+            <h1 className="text-xl font-semibold text-white tracking-tight">
+              {currentWorkspace?.name || "Workspace"} Pipelines
+            </h1>
             <span className="text-[11px] font-mono text-[#8b949e] px-2 py-0.5 rounded bg-[#161820] border border-[#23262f]">
               {workflows.length} registered
             </span>
           </div>
           <p className="text-xs text-[#8b949e] font-mono">
-            Orchestrates event-driven pipelines via Kafka outbox, Redis pub/sub telemetry, and MinIO object storage.
+            Tenant: <code className="text-[#ededed]">{currentWorkspace?.slug || "finance-team"}</code> &bull; ID: {workspaceId}
           </p>
         </div>
 
@@ -226,7 +259,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Engineering Cluster Telemetry Grid */}
+      {/* Dynamic Cluster Telemetry Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Total Pipelines */}
         <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
@@ -256,12 +289,14 @@ export default function DashboardPage() {
         {/* Kafka Broker Status */}
         <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
           <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
-            <span>KAFKA BUS</span>
+            <span>KAFKA BUS (LIVE)</span>
             <Server className="w-3.5 h-3.5 text-[#525866]" />
           </div>
-          <div className="text-2xl font-mono font-bold text-white tracking-tight">0ms lag</div>
+          <div className="text-2xl font-mono font-bold text-white tracking-tight">
+            {telemetry?.kafka?.lag ?? 0}ms lag
+          </div>
           <div className="text-[11px] font-mono text-[#8b949e]">
-            partition 0 &bull; 3 worker replicas
+            partition {telemetry?.kafka?.partition ?? 0} &bull; {telemetry?.workers?.replicas ?? 3} replicas
           </div>
         </div>
 
@@ -271,9 +306,11 @@ export default function DashboardPage() {
             <span>OBJECT STORE</span>
             <HardDrive className="w-3.5 h-3.5 text-[#525866]" />
           </div>
-          <div className="text-2xl font-mono font-bold text-white tracking-tight">MinIO S3</div>
+          <div className="text-2xl font-mono font-bold text-white tracking-tight">
+            {telemetry?.minio?.status === "UP" ? "MinIO S3" : "Storage"}
+          </div>
           <div className="text-[11px] font-mono text-[#525866] truncate">
-            bucket: taskforge-artifacts
+            bucket: {telemetry?.minio?.bucket || "taskforge-artifacts"}
           </div>
         </div>
       </div>
@@ -337,7 +374,7 @@ export default function DashboardPage() {
               <div className="h-10 w-10 rounded bg-[#161820] border border-[#2b2f3a] text-[#8b949e] flex items-center justify-center mx-auto">
                 <GitBranch className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-white">No pipelines configured</h3>
+              <h3 className="text-sm font-semibold text-white">No pipelines configured in this workspace</h3>
               <p className="text-xs text-[#8b949e] font-mono max-w-sm mx-auto">
                 Define an event-driven DAG pipeline for processing incoming CSV data, threshold branching, and alert delivery.
               </p>
@@ -350,105 +387,121 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredWorkflows.map((workflow) => (
-                <div
-                  key={workflow.id}
-                  className="group bg-[#0e0f13] border border-[#1f222a] hover:border-[#2f3340] rounded-lg p-4 transition flex flex-col justify-between space-y-4 shadow-sm"
-                >
-                  <div className="space-y-3">
-                    {/* Header: Status & Actions */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 ${
-                            workflow.status === "PUBLISHED"
-                              ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
-                              : "bg-[#221706] text-[#e5a93c] border-[#38260a]"
-                          }`}
-                        >
+              {filteredWorkflows.map((workflow) => {
+                const summary = getTopologySummary(workflow.draftDefinition);
+                return (
+                  <div
+                    key={workflow.id}
+                    className="group bg-[#0e0f13] border border-[#1f222a] hover:border-[#2f3340] rounded-lg p-4 transition flex flex-col justify-between space-y-4 shadow-sm"
+                  >
+                    <div className="space-y-3">
+                      {/* Header: Status & Actions */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              workflow.status === "PUBLISHED" ? "bg-[#10b981]" : "bg-[#e5a93c]"
+                            className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 ${
+                              workflow.status === "PUBLISHED"
+                                ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
+                                : "bg-[#221706] text-[#e5a93c] border-[#38260a]"
                             }`}
-                          ></span>
-                          <span>{workflow.status}</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-[#525866]">rev: 1.0</span>
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                workflow.status === "PUBLISHED" ? "bg-[#10b981]" : "bg-[#e5a93c]"
+                              }`}
+                            ></span>
+                            <span>{workflow.status}</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-[#525866]">
+                            updated {new Date(workflow.updatedAt || workflow.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-[11px] font-mono text-[#525866]">
+                          <span>id: {workflow.id.slice(0, 8)}</span>
+                          <button
+                            onClick={() => copyId(workflow.id)}
+                            className="hover:text-[#8b949e] p-0.5 rounded transition"
+                            title="Copy workflow ID"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                          {copiedWfId === workflow.id && (
+                            <span className="text-[10px] text-[#10b981]">copied</span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1 text-[11px] font-mono text-[#525866]">
-                        <span>id: {workflow.id.slice(0, 8)}</span>
-                        <button
-                          onClick={() => copyId(workflow.id)}
-                          className="hover:text-[#8b949e] p-0.5 rounded transition"
-                          title="Copy workflow ID"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </button>
-                        {copiedWfId === workflow.id && (
-                          <span className="text-[10px] text-[#10b981]">copied</span>
+                      {/* Title & Description */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-[#ededed] group-hover:text-white transition">
+                          {workflow.name}
+                        </h3>
+                        <p className="text-xs text-[#8b949e] mt-1 line-clamp-2 leading-relaxed font-mono">
+                          {workflow.description || "Directed acyclic graph data pipeline."}
+                        </p>
+                      </div>
+
+                      {/* Dynamic Topology Metadata Pills */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                          {summary.taskCount} tasks
+                        </span>
+                        {summary.conditions > 0 && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                            {summary.conditions} condition {summary.conditions > 1 ? "rules" : "rule"}
+                          </span>
+                        )}
+                        {summary.hasCsv && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                            CSV Ingest
+                          </span>
+                        )}
+                        {summary.hasMinio && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                            MinIO S3
+                          </span>
+                        )}
+                        {summary.hasEmail && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
+                            Mailpit SMTP
+                          </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Title & Description */}
-                    <div>
-                      <h3 className="text-sm font-semibold text-[#ededed] group-hover:text-white transition">
-                        {workflow.name}
-                      </h3>
-                      <p className="text-xs text-[#8b949e] mt-1 line-clamp-2 leading-relaxed font-mono">
-                        {workflow.description || "Directed acyclic graph data pipeline."}
-                      </p>
-                    </div>
+                    {/* Footer Bar: Timestamp & Action Buttons */}
+                    <div className="pt-3 border-t border-[#181a20] flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#525866]">
+                        <Clock className="w-3 h-3" />
+                        <span>Created {new Date(workflow.createdAt).toLocaleDateString()}</span>
+                      </div>
 
-                    {/* Topology Metadata Pills */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
-                        5 tasks
-                      </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
-                        1 condition rule
-                      </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
-                        MinIO S3
-                      </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#13151b] border border-[#1c1e26] text-[#8b949e]">
-                        Mailpit SMTP
-                      </span>
-                    </div>
-                  </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedWorkflowForRun(workflow.id);
+                            setShowRunModal(true);
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-xs font-mono text-[#e5a93c] transition"
+                          title="Dispatch Run"
+                        >
+                          <Play className="w-3 h-3 fill-[#e5a93c]" />
+                          <span>Run</span>
+                        </button>
 
-                  {/* Footer Bar: Timestamp & Action Buttons */}
-                  <div className="pt-3 border-t border-[#181a20] flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#525866]">
-                      <Clock className="w-3 h-3" />
-                      <span>{new Date(workflow.createdAt).toLocaleDateString()}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedWorkflowForRun(workflow.id);
-                          setShowRunModal(true);
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-xs font-mono text-[#e5a93c] transition"
-                        title="Dispatch Run"
-                      >
-                        <Play className="w-3 h-3 fill-[#e5a93c]" />
-                        <span>Run</span>
-                      </button>
-
-                      <Link
-                        href={`/workflows/${workflow.id}/edit`}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1f222c] hover:bg-[#2a2e3b] text-white text-xs font-mono font-medium transition"
-                      >
-                        <span>Edit Canvas</span>
-                        <ChevronRight className="w-3 h-3 text-[#8b949e]" />
-                      </Link>
+                        <Link
+                          href={`/workflows/${workflow.id}/edit`}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1f222c] hover:bg-[#2a2e3b] text-white text-xs font-mono font-medium transition"
+                        >
+                          <span>Edit Canvas</span>
+                          <ChevronRight className="w-3 h-3 text-[#8b949e]" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -478,63 +531,68 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#181a20]">
-                {executions.map((exec) => (
-                  <tr key={exec.id} className="hover:bg-[#13151b] transition">
-                    <td className="px-4 py-2.5 text-[#ededed]">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[#8b949e]">#</span>
-                        <span className="font-semibold text-white">{exec.id.slice(0, 8)}</span>
-                        <span className="text-[#525866]">...{exec.id.slice(-4)}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 w-fit ${
-                          exec.status === "COMPLETED"
-                            ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
-                            : exec.status === "FAILED"
-                            ? "bg-[#250e12] text-[#f43f5e] border-[#441920]"
-                            : exec.status === "CANCELLED"
-                            ? "bg-[#181a20] text-[#8b949e] border-[#23262f]"
-                            : "bg-[#221706] text-[#e5a93c] border-[#38260a] animate-pulse"
-                        }`}
-                      >
+                {executions.map((exec) => {
+                  const durationSec =
+                    exec.finishedAt && exec.startedAt
+                      ? `${((new Date(exec.finishedAt).getTime() - new Date(exec.startedAt).getTime()) / 1000).toFixed(2)}s`
+                      : exec.status === "RUNNING"
+                      ? "running..."
+                      : "-";
+
+                  return (
+                    <tr key={exec.id} className="hover:bg-[#13151b] transition">
+                      <td className="px-4 py-2.5 text-[#ededed]">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#8b949e]">#</span>
+                          <span className="font-semibold text-white">{exec.id.slice(0, 8)}</span>
+                          <span className="text-[#525866]">...{exec.id.slice(-4)}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5">
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${
+                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 w-fit ${
                             exec.status === "COMPLETED"
-                              ? "bg-[#10b981]"
+                              ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
                               : exec.status === "FAILED"
-                              ? "bg-[#f43f5e]"
+                              ? "bg-[#250e12] text-[#f43f5e] border-[#441920]"
                               : exec.status === "CANCELLED"
-                              ? "bg-[#8b949e]"
-                              : "bg-[#e5a93c]"
+                              ? "bg-[#181a20] text-[#8b949e] border-[#23262f]"
+                              : "bg-[#221706] text-[#e5a93c] border-[#38260a] animate-pulse"
                           }`}
-                        ></span>
-                        <span>{exec.status}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-[#8b949e]">
-                      {exec.triggerType || "MANUAL_DISPATCH"}
-                    </td>
-                    <td className="px-4 py-2.5 text-[#525866]">
-                      {exec.startedAt ? new Date(exec.startedAt).toLocaleTimeString() : "Just now"}
-                    </td>
-                    <td className="px-4 py-2.5 text-[#8b949e]">
-                      {exec.finishedAt && exec.startedAt
-                        ? `${((new Date(exec.finishedAt).getTime() - new Date(exec.startedAt).getTime()) / 1000).toFixed(2)}s`
-                        : "0.42s"}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Link
-                        href={`/executions/${exec.id}`}
-                        className="inline-flex items-center gap-1 text-[#8b949e] hover:text-white transition font-medium"
-                      >
-                        <span>Inspect</span>
-                        <ChevronRight className="w-3 h-3" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              exec.status === "COMPLETED"
+                                ? "bg-[#10b981]"
+                                : exec.status === "FAILED"
+                                ? "bg-[#f43f5e]"
+                                : exec.status === "CANCELLED"
+                                ? "bg-[#8b949e]"
+                                : "bg-[#e5a93c]"
+                            }`}
+                          ></span>
+                          <span>{exec.status}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-[#8b949e]">
+                        {exec.triggerType || "MANUAL_DISPATCH"}
+                      </td>
+                      <td className="px-4 py-2.5 text-[#525866]">
+                        {exec.startedAt ? new Date(exec.startedAt).toLocaleTimeString() : "Just now"}
+                      </td>
+                      <td className="px-4 py-2.5 text-[#8b949e]">{durationSec}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Link
+                          href={`/executions/${exec.id}`}
+                          className="inline-flex items-center gap-1 text-[#8b949e] hover:text-white transition font-medium"
+                        >
+                          <span>Inspect</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -662,7 +720,7 @@ export default function DashboardPage() {
             <form onSubmit={handleRunPipeline} className="space-y-4">
               <div className="space-y-1">
                 <label className="block text-xs font-mono text-[#8b949e]">
-                  Target Pipeline
+                  Target Pipeline ({currentWorkspace?.name})
                 </label>
                 <select
                   value={selectedWorkflowForRun || (workflows[0] ? workflows[0].id : "")}
@@ -679,7 +737,7 @@ export default function DashboardPage() {
 
               <div className="space-y-1">
                 <label className="block text-xs font-mono text-[#8b949e]">
-                  Upload Invoices CSV (MinIO Storage)
+                  Input Invoices CSV (MinIO Storage)
                 </label>
                 <div className="border border-dashed border-[#23262f] hover:border-[#383d4a] rounded-md p-4 text-center bg-[#13151b] cursor-pointer transition">
                   <input
@@ -692,10 +750,12 @@ export default function DashboardPage() {
                   <label htmlFor="csv-file-input" className="cursor-pointer space-y-1 block">
                     <UploadCloud className="w-5 h-5 text-[#8b949e] mx-auto" />
                     <div className="text-xs font-mono text-[#ededed]">
-                      {runFile ? runFile.name : "Select CSV to upload"}
+                      {runFile ? runFile.name : "Select or drag custom CSV file"}
                     </div>
                     <div className="text-[10px] font-mono text-[#525866]">
-                      {runFile ? `${(runFile.size / 1024).toFixed(1)} KB` : "Leave empty to use sample invoice dataset"}
+                      {runFile
+                        ? `${(runFile.size / 1024).toFixed(1)} KB selected for MinIO upload`
+                        : "Leave empty to use pre-seeded sample-invoices.csv dataset"}
                     </div>
                   </label>
                 </div>

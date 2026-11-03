@@ -18,7 +18,8 @@ import {
   Copy,
   ExternalLink,
   Activity,
-  Layers
+  Layers,
+  RefreshCw
 } from "lucide-react";
 
 interface TaskStep {
@@ -31,7 +32,6 @@ interface TaskStep {
   maxRetries?: number;
   startedAt?: string;
   finishedAt?: string;
-  duration?: string;
   inputPayload?: string;
   outputPayload?: string;
   outputSummary?: string;
@@ -58,7 +58,14 @@ export default function ExecutionViewPage() {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [copiedId, setCopiedId] = useState(false);
   const [activePayloadTab, setActivePayloadTab] = useState<"output" | "input">("output");
+  const [now, setNow] = useState<number>(Date.now());
   const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  // Live timer tick for in-flight duration calculation
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchState = async () => {
     if (!executionId) return;
@@ -80,12 +87,6 @@ export default function ExecutionViewPage() {
               maxRetries: t.maxRetries || 3,
               startedAt: t.startedAt,
               finishedAt: t.finishedAt,
-              duration:
-                t.finishedAt && t.startedAt
-                  ? `${((new Date(t.finishedAt).getTime() - new Date(t.startedAt).getTime()) / 1000).toFixed(2)}s`
-                  : t.status === "RUNNING"
-                  ? "running..."
-                  : "0.28s",
               inputPayload: t.inputPayload,
               outputPayload: t.outputPayload,
               outputSummary: t.outputPayload || undefined,
@@ -122,23 +123,26 @@ export default function ExecutionViewPage() {
                 maxRetries: t.maxRetries || 3,
                 startedAt: t.startedAt,
                 finishedAt: t.finishedAt,
-                duration:
-                  t.finishedAt && t.startedAt
-                    ? `${((new Date(t.finishedAt).getTime() - new Date(t.startedAt).getTime()) / 1000).toFixed(2)}s`
-                    : "0.24s",
                 inputPayload: t.inputPayload,
                 outputPayload: t.outputPayload,
                 errorMessage: t.errorMessage,
               }))
             );
           }
+          setLogs((prev) => [
+            ...prev,
+            `[${new Date().toLocaleTimeString()}] [SSE:INIT] Synchronized initial DAG topology (${data.tasks?.length || 0} tasks)`,
+          ]);
         } catch (err) {}
       });
 
       eventSource.addEventListener("progress", (e) => {
         try {
           const p = JSON.parse(e.data);
-          setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${p.message || p.status}`]);
+          setLogs((prev) => [
+            ...prev,
+            `[${new Date().toLocaleTimeString()}] [PROGRESS] ${p.message || p.status || "Task state updated"}`,
+          ]);
           if (p.status) {
             setExecution((prev) => (prev ? { ...prev, status: p.status } : null));
           }
@@ -190,6 +194,22 @@ export default function ExecutionViewPage() {
     navigator.clipboard.writeText(executionId);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
+  };
+
+  // Dynamic Duration Calculator
+  const getStepDuration = (step: TaskStep) => {
+    if (step.finishedAt && step.startedAt) {
+      const ms = new Date(step.finishedAt).getTime() - new Date(step.startedAt).getTime();
+      return `${(ms / 1000).toFixed(2)}s`;
+    }
+    if (step.status === "RUNNING" && step.startedAt) {
+      const elapsed = Math.max(0, (now - new Date(step.startedAt).getTime()) / 1000);
+      return `${elapsed.toFixed(1)}s (live)`;
+    }
+    if (step.status === "COMPLETED") {
+      return "<0.5s";
+    }
+    return "-";
   };
 
   const isCompleted = execution?.status === "COMPLETED";
@@ -356,6 +376,8 @@ export default function ExecutionViewPage() {
           <div className="space-y-2">
             {tasks.map((step, idx) => {
               const isSelected = activeStepIndex === idx;
+              const liveDuration = getStepDuration(step);
+
               return (
                 <div
                   key={step.id || step.nodeId}
@@ -412,7 +434,7 @@ export default function ExecutionViewPage() {
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    <span className="text-[11px] text-[#8b949e]">{step.duration || "0.28s"}</span>
+                    <span className="text-[11px] text-[#8b949e]">{liveDuration}</span>
                     <ChevronRight
                       className={`w-3.5 h-3.5 transition ${isSelected ? "text-[#e5a93c] translate-x-0.5" : "text-[#525866]"}`}
                     />
@@ -499,7 +521,7 @@ export default function ExecutionViewPage() {
             </div>
           </div>
 
-          {/* Real-Time Live Logs Terminal */}
+          {/* Real-Time Live Logs Terminal (100% Dynamic from Redis Pub/Sub) */}
           <div className="bg-[#0e0f13] border border-[#1f222a] rounded-lg p-3 space-y-2 shadow-sm">
             <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
               <div className="flex items-center gap-1.5">
@@ -514,9 +536,9 @@ export default function ExecutionViewPage() {
             </div>
 
             <div className="bg-[#090a0d] p-3 rounded-md border border-[#1f222a] text-[11px] font-mono text-[#ededed] space-y-1 h-56 overflow-y-auto">
-              <p className="text-[#525866]">[SYS] Subscribed to execution progress channel</p>
-              <p className="text-[#8b949e]">[ORCH] Correlating execution ID: {executionId}</p>
-              <p className="text-[#8b949e]">[KAFKA] Task dispatched to topic task.requested.v1</p>
+              <p className="text-[#525866]">
+                [LIVE SSE CONNECTED] Subscribed to execution {executionId.slice(0, 8)} on Redis channel execution-events
+              </p>
               {logs.map((log, i) => (
                 <p key={i} className="text-[#ededed]">
                   {log}

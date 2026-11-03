@@ -40,8 +40,7 @@ import {
   Layers,
   Database
 } from "lucide-react";
-
-const WORKSPACE_ID = "e7c051b5-e677-4724-a98a-4179cd14d0cf";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 // Category Color & Indicator Registry
 const TASK_TYPE_META: Record<string, { label: string; tag: string; color: string; border: string }> = {
@@ -194,6 +193,8 @@ const initialEdges: Edge[] = [
 export default function WorkflowEditorPage() {
   const router = useRouter();
   const routeParams = useParams();
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id || "e7c051b5-e677-4724-a98a-4179cd14d0cf";
   const workflowId = (routeParams?.id as string) || "";
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -340,12 +341,12 @@ export default function WorkflowEditorPage() {
     e.preventDefault();
     try {
       setIsRunning(true);
-      let artifactKey = "workspaces/e7c051b5-e677-4724-a98a-4179cd14d0cf/uploads/sample-invoices.csv";
+      let artifactKey = `workspaces/${workspaceId}/uploads/sample-invoices.csv`;
 
       if (runFile) {
         const formData = new FormData();
         formData.append("file", runFile);
-        const uploadRes = await fetch(`/api/v1/workspaces/${WORKSPACE_ID}/uploads`, {
+        const uploadRes = await fetch(`/api/v1/workspaces/${workspaceId}/uploads`, {
           method: "POST",
           body: formData,
         });

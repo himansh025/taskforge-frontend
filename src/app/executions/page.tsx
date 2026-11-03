@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -18,8 +18,7 @@ import {
   Layers,
   HardDrive
 } from "lucide-react";
-
-const WORKSPACE_ID = "e7c051b5-e677-4724-a98a-4179cd14d0cf";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 interface ExecutionItem {
   id: string;
@@ -33,15 +32,19 @@ interface ExecutionItem {
 }
 
 export default function ExecutionsPage() {
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id || "e7c051b5-e677-4724-a98a-4179cd14d0cf";
+
   const [executions, setExecutions] = useState<ExecutionItem[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [searchId, setSearchId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchExecutions = async () => {
+  const fetchExecutions = useCallback(async () => {
+    if (!workspaceId) return;
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/v1/workspaces/${WORKSPACE_ID}/executions`);
+      const res = await fetch(`/api/v1/workspaces/${workspaceId}/executions`);
       if (res.ok) {
         const data = await res.json();
         setExecutions(data);
@@ -51,13 +54,13 @@ export default function ExecutionsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchExecutions();
     const interval = setInterval(fetchExecutions, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchExecutions]);
 
   const filtered = executions.filter((e) => {
     const matchesStatus = filterStatus === "ALL" || e.status === filterStatus;
@@ -82,13 +85,15 @@ export default function ExecutionsPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold text-white font-mono">Execution Telemetry Ledger</h1>
+              <h1 className="text-base font-semibold text-white font-mono">
+                {currentWorkspace?.name || "Workspace"} Telemetry Ledger
+              </h1>
               <span className="text-[10px] font-mono uppercase bg-[#0d1f14] text-[#10b981] border border-[#163821] px-1.5 py-0.5 rounded">
                 Live SSE
               </span>
             </div>
             <p className="text-[11px] text-[#525866] font-mono mt-0.5">
-              Historical audit log of distributed DAG executions, task retries, and generated S3 reports.
+              Historical audit log for tenant: <code className="text-[#ededed]">{currentWorkspace?.slug || "finance-team"}</code>
             </p>
           </div>
         </div>
@@ -151,7 +156,7 @@ export default function ExecutionsPage() {
         </div>
 
         {/* Search */}
-        <div className="relative w-full sm:w-64">
+        <div className="relative w-full sm:w-72">
           <Search className="w-3.5 h-3.5 text-[#525866] absolute left-3 top-2.5" />
           <input
             type="text"
@@ -178,63 +183,68 @@ export default function ExecutionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#181a20]">
-              {filtered.map((item) => (
-                <tr key={item.id} className="hover:bg-[#13151b] transition">
-                  <td className="px-4 py-2.5 text-[#ededed]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[#8b949e]">#</span>
-                      <span className="font-semibold text-white">{item.id.slice(0, 8)}</span>
-                      <span className="text-[#525866]">...{item.id.slice(-4)}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 w-fit ${
-                        item.status === "COMPLETED"
-                          ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
-                          : item.status === "FAILED"
-                          ? "bg-[#250e12] text-[#f43f5e] border-[#441920]"
-                          : item.status === "CANCELLED"
-                          ? "bg-[#181a20] text-[#8b949e] border-[#23262f]"
-                          : "bg-[#221706] text-[#e5a93c] border-[#38260a] animate-pulse"
-                      }`}
-                    >
+              {filtered.map((item) => {
+                const durationSec =
+                  item.finishedAt && item.startedAt
+                    ? `${((new Date(item.finishedAt).getTime() - new Date(item.startedAt).getTime()) / 1000).toFixed(2)}s`
+                    : item.status === "RUNNING"
+                    ? "running..."
+                    : "-";
+
+                return (
+                  <tr key={item.id} className="hover:bg-[#13151b] transition">
+                    <td className="px-4 py-2.5 text-[#ededed]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[#8b949e]">#</span>
+                        <span className="font-semibold text-white">{item.id.slice(0, 8)}</span>
+                        <span className="text-[#525866]">...{item.id.slice(-4)}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5">
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${
+                        className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border flex items-center gap-1.5 w-fit ${
                           item.status === "COMPLETED"
-                            ? "bg-[#10b981]"
+                            ? "bg-[#0d1f14] text-[#10b981] border-[#163821]"
                             : item.status === "FAILED"
-                            ? "bg-[#f43f5e]"
+                            ? "bg-[#250e12] text-[#f43f5e] border-[#441920]"
                             : item.status === "CANCELLED"
-                            ? "bg-[#8b949e]"
-                            : "bg-[#e5a93c]"
+                            ? "bg-[#181a20] text-[#8b949e] border-[#23262f]"
+                            : "bg-[#221706] text-[#e5a93c] border-[#38260a] animate-pulse"
                         }`}
-                      ></span>
-                      <span>{item.status}</span>
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-[#8b949e]">
-                    {item.triggerType || "MANUAL_DISPATCH"}
-                  </td>
-                  <td className="px-4 py-2.5 text-[#525866]">
-                    {item.startedAt ? new Date(item.startedAt).toLocaleString() : "Just now"}
-                  </td>
-                  <td className="px-4 py-2.5 text-[#8b949e]">
-                    {item.finishedAt && item.startedAt
-                      ? `${((new Date(item.finishedAt).getTime() - new Date(item.startedAt).getTime()) / 1000).toFixed(2)}s`
-                      : "0.42s"}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Link
-                      href={`/executions/${item.id}`}
-                      className="inline-flex items-center gap-1 text-[#8b949e] hover:text-white transition font-medium"
-                    >
-                      <span>Live Trace</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            item.status === "COMPLETED"
+                              ? "bg-[#10b981]"
+                              : item.status === "FAILED"
+                              ? "bg-[#f43f5e]"
+                              : item.status === "CANCELLED"
+                              ? "bg-[#8b949e]"
+                              : "bg-[#e5a93c]"
+                          }`}
+                        ></span>
+                        <span>{item.status}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-[#8b949e]">
+                      {item.triggerType || "MANUAL_DISPATCH"}
+                    </td>
+                    <td className="px-4 py-2.5 text-[#525866]">
+                      {item.startedAt ? new Date(item.startedAt).toLocaleString() : "Just now"}
+                    </td>
+                    <td className="px-4 py-2.5 text-[#8b949e]">{durationSec}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Link
+                        href={`/executions/${item.id}`}
+                        className="inline-flex items-center gap-1 text-[#8b949e] hover:text-white transition font-medium"
+                      >
+                        <span>Live Trace</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

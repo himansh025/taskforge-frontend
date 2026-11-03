@@ -46,31 +46,31 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 const TASK_TYPE_META: Record<string, { label: string; tag: string; color: string; border: string }> = {
   CSV_VALIDATE: {
     label: "CSV Intake & Validator",
-    tag: "INGEST",
+    tag: "INPUT",
     color: "#38bdf8",
     border: "#1e3a5f",
   },
   DATA_TRANSFORM: {
     label: "Cleanse & Normalize",
-    tag: "TRANSFORM",
+    tag: "FORMAT",
     color: "#a78bfa",
     border: "#3b2b5f",
   },
   CONDITION: {
     label: "Threshold Rule Gate",
-    tag: "LOGIC",
+    tag: "RULE",
     color: "#e5a93c",
     border: "#4d3810",
   },
   GENERATE_REPORT: {
     label: "Generate Audit Report",
-    tag: "STORAGE",
+    tag: "REPORT",
     color: "#10b981",
     border: "#163e26",
   },
   SEND_EMAIL: {
     label: "Dispatch Email Alert",
-    tag: "SINK",
+    tag: "ALERT",
     color: "#06b6d4",
     border: "#154249",
   },
@@ -272,18 +272,18 @@ export default function WorkflowEditorPage() {
 
   const handleValidateGraph = () => {
     if (nodes.length === 0) {
-      setValidationResult({ valid: false, message: "Topology cannot be empty." });
+      setValidationResult({ valid: false, message: "Pipeline flow cannot be empty." });
       return;
     }
     const targetSet = new Set(edges.map((e) => e.target));
     const roots = nodes.filter((n) => !targetSet.has(n.id));
 
     if (roots.length === 0) {
-      setValidationResult({ valid: false, message: "Cycle detected! Graph has no root trigger node." });
+      setValidationResult({ valid: false, message: "Circular loop detected! The flow must have a starting step." });
     } else {
       setValidationResult({
         valid: true,
-        message: `Graph valid: ${nodes.length} nodes, ${edges.length} edges. Root trigger: "${roots[0].data?.label || roots[0].id}".`,
+        message: `Pipeline flow is valid: ${nodes.length} steps, ${edges.length} connections. Starting step: "${roots[0].data?.label || roots[0].id}".`,
       });
     }
 
@@ -422,7 +422,7 @@ export default function WorkflowEditorPage() {
               </span>
             </div>
             <p className="text-[11px] font-mono text-[#525866]">
-              Topology ID: {workflowId ? workflowId.slice(0, 8) : "wf"} &bull; DAG Execution Engine
+              Pipeline ID: {workflowId ? workflowId.slice(0, 8) : "wf"} &bull; TaskForge Engine
             </p>
           </div>
         </div>
@@ -434,7 +434,7 @@ export default function WorkflowEditorPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[#8b949e] hover:text-white bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] rounded-md transition"
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-[#e5a93c]" />
-            <span>Validate</span>
+            <span>Check Flow</span>
           </button>
 
           <button
@@ -487,9 +487,9 @@ export default function WorkflowEditorPage() {
         <div className="w-64 bg-[#0e0f13] border border-[#1f222a] rounded-lg p-3 flex flex-col space-y-3 shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
-              Task Catalog
+              Step Library
             </span>
-            <span className="text-[10px] font-mono text-[#525866]">5 modules</span>
+            <span className="text-[10px] font-mono text-[#525866]">5 steps</span>
           </div>
 
           <div className="space-y-1.5 overflow-y-auto pr-0.5">
@@ -567,10 +567,10 @@ export default function WorkflowEditorPage() {
           <div className="mt-auto p-2.5 bg-[#13151b] border border-[#1f222a] rounded-md text-[11px] font-mono text-[#525866] space-y-1">
             <div className="flex items-center gap-1.5 text-[#8b949e]">
               <Info className="w-3 h-3 text-[#e5a93c]" />
-              <span className="font-semibold">Execution Semantics</span>
+              <span className="font-semibold">How It Works</span>
             </div>
             <p className="leading-relaxed">
-              Orchestrator schedules child nodes only when upstream dependencies succeed.
+              Each step runs automatically as soon as the previous step finishes successfully.
             </p>
           </div>
         </div>
@@ -602,7 +602,7 @@ export default function WorkflowEditorPage() {
               <div className="flex items-center justify-between border-b border-[#1f222a] pb-2">
                 <div className="flex items-center gap-1.5">
                   <Settings className="w-3.5 h-3.5 text-[#e5a93c]" />
-                  <span className="font-bold text-white uppercase tracking-wider text-[11px]">Node Inspector</span>
+                  <span className="font-bold text-white uppercase tracking-wider text-[11px]">Step Settings</span>
                 </div>
                 <button
                   onClick={() => setSelectedNode(null)}
@@ -614,7 +614,7 @@ export default function WorkflowEditorPage() {
 
               <div className="space-y-2.5">
                 <div>
-                  <label className="text-[10px] font-bold text-[#525866] uppercase">Node Identifier</label>
+                  <label className="text-[10px] font-bold text-[#525866] uppercase">Step ID</label>
                   <p className="text-[#ededed] bg-[#13151b] p-1.5 rounded mt-0.5 border border-[#1f222a]">
                     {selectedNode.id}
                   </p>
@@ -653,7 +653,7 @@ export default function WorkflowEditorPage() {
                 className="w-full flex items-center justify-center gap-1.5 p-2 bg-[#250e12] hover:bg-[#341419] border border-[#441920] text-[#f43f5e] rounded font-medium transition"
               >
                 <Trash2 className="w-3 h-3" />
-                <span>Remove Node</span>
+                <span>Remove Step</span>
               </button>
             </div>
           )}

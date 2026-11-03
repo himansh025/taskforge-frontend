@@ -6,6 +6,7 @@ export interface Workspace {
   id: string;
   name: string;
   slug: string;
+  createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -36,9 +37,10 @@ export interface ClusterTelemetry {
 }
 
 export interface UserProfile {
+  id?: string;
   name: string;
-  role: string;
   email: string;
+  role: string;
 }
 
 interface WorkspaceContextType {
@@ -50,8 +52,12 @@ interface WorkspaceContextType {
   telemetry: ClusterTelemetry | null;
   workflowCount: number;
   setWorkflowCount: (count: number) => void;
-  currentUser: UserProfile;
-  setCurrentUser: (user: UserProfile) => void;
+  currentUser: UserProfile | null;
+  isAuthenticated: boolean;
+  token: string | null;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (displayName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   refreshWorkspaces: () => Promise<void>;
 }
 
@@ -66,28 +72,53 @@ const defaultTelemetry: ClusterTelemetry = {
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
   const [telemetry, setTelemetry] = useState<ClusterTelemetry | null>(defaultTelemetry);
   const [workflowCount, setWorkflowCount] = useState<number>(1);
-  const [currentUser, setCurrentUser] = useState<UserProfile>({
-    name: "Himanshu Singh",
-    role: "Lead Engineer",
-    email: "himanshudeolia0825@gmail.com",
-  });
+
+  // Restore session from localStorage on initial load
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedToken = localStorage.getItem("taskforge_token");
+      const savedUserStr = localStorage.getItem("taskforge_user");
+      if (savedToken) {
+        setToken(savedToken);
+      }
+      if (savedUserStr) {
+        try {
+          setCurrentUser(JSON.parse(savedUserStr));
+        } catch (e) {}
+      } else {
+        // Default operator session if none exists
+        setCurrentUser({
+          name: "Himanshu Singh",
+          email: "himanshu@taskforge.dev",
+          role: "Workspace Owner",
+        });
+      }
+    }
+  }, []);
 
   const fetchWorkspaces = useCallback(async () => {
     try {
       setIsLoadingWorkspaces(true);
-      const res = await fetch("/api/v1/workspaces");
+      const headers: Record<string, string> = {};
+      const activeToken = token || (typeof window !== "undefined" ? localStorage.getItem("taskforge_token") : null);
+      if (activeToken) {
+        headers["Authorization"] = `Bearer ${activeToken}`;
+      }
+
+      const res = await fetch("/api/v1/workspaces", { headers });
       if (res.ok) {
         const data: Workspace[] = await res.json();
         setWorkspaces(data);
 
-        // Check if there is a saved workspace ID in localStorage
         const savedId = typeof window !== "undefined" ? localStorage.getItem("taskforge_active_workspace") : null;
-        const matched = data.find((w) => w.id === savedId) || data.find((w) => w.slug === "finance-team") || data[0];
+        const matched = data.find((w) => w.id === savedId) || data[0];
 
         if (matched) {
           setCurrentWorkspace(matched);
@@ -98,7 +129,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoadingWorkspaces(false);
     }
-  }, []);
+  }, [token]);
 
   const fetchTelemetry = useCallback(async () => {
     try {
@@ -107,9 +138,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setTelemetry(data);
       }
-    } catch (e) {
-      // Fallback to active defaults
-    }
+    } catch (e) {}
   }, []);
 
   useEffect(() => {
@@ -131,9 +160,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const createWorkspace = async (name: string, slug?: string): Promise<Workspace | null> => {
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const activeToken = token || (typeof window !== "undefined" ? localStorage.getItem("taskforge_token") : null);
+      if (activeToken) {
+        headers["Authorization"] = `Bearer ${activeToken}`;
+      }
+
       const res = await fetch("/api/v1/workspaces", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ name, slug }),
       });
       if (res.ok) {
@@ -148,6 +183,95 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return null;
   };
 
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.message || "Invalid email or password" };
+      }
+
+      const data = await res.json();
+      const userProfile: UserProfile = {
+        id: data.userId,
+        name: data.displayName || email.split("@")[0],
+        email: data.email,
+        role: "Workspace Owner",
+      };
+
+      setToken(data.token);
+      setCurrentUser(userProfile);
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("taskforge_token", data.token);
+        localStorage.setItem("taskforge_user", JSON.stringify(userProfile));
+        if (data.defaultWorkspaceId) {
+          localStorage.setItem("taskforge_active_workspace", data.defaultWorkspaceId);
+        }
+      }
+
+      await fetchWorkspaces();
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || "Network error during login" };
+    }
+  };
+
+  const register = async (displayName: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName, email, password }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.message || "Registration failed. Email may already be in use." };
+      }
+
+      const data = await res.json();
+      const userProfile: UserProfile = {
+        id: data.userId,
+        name: data.displayName,
+        email: data.email,
+        role: "Workspace Owner",
+      };
+
+      setToken(data.token);
+      setCurrentUser(userProfile);
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("taskforge_token", data.token);
+        localStorage.setItem("taskforge_user", JSON.stringify(userProfile));
+        if (data.defaultWorkspaceId) {
+          localStorage.setItem("taskforge_active_workspace", data.defaultWorkspaceId);
+        }
+      }
+
+      await fetchWorkspaces();
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || "Network error during registration" };
+    }
+  };
+
+  const logout = () => {
+    setToken(null);
+    setCurrentUser(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("taskforge_token");
+      localStorage.removeItem("taskforge_user");
+      localStorage.removeItem("taskforge_active_workspace");
+    }
+    fetchWorkspaces();
+  };
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -160,7 +284,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         workflowCount,
         setWorkflowCount,
         currentUser,
-        setCurrentUser,
+        isAuthenticated: !!token || !!currentUser,
+        token,
+        login,
+        register,
+        logout,
         refreshWorkspaces: fetchWorkspaces,
       }}
     >

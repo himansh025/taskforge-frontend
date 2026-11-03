@@ -86,14 +86,14 @@ export default function ExecutionsPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-semibold text-white font-mono">
-                {currentWorkspace?.name || "Workspace"} Telemetry Ledger
+                {currentWorkspace?.name || "Workspace"} Run History
               </h1>
               <span className="text-[10px] font-mono uppercase bg-[#0d1f14] text-[#10b981] border border-[#163821] px-1.5 py-0.5 rounded">
                 Live SSE
               </span>
             </div>
             <p className="text-[11px] text-[#525866] font-mono mt-0.5">
-              Historical audit log for tenant: <code className="text-[#ededed]">{currentWorkspace?.slug || "finance-team"}</code>
+              Execution history for workspace: <code className="text-[#ededed]">{currentWorkspace?.slug || "finance-team"}</code>
             </p>
           </div>
         </div>
@@ -123,15 +123,15 @@ export default function ExecutionsPage() {
           <p className="text-xl font-mono font-bold text-white">{executions.length}</p>
         </div>
         <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
-          <span className="text-[10px] font-mono text-[#525866] uppercase">Completed (SLA)</span>
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Successful</span>
           <p className="text-xl font-mono font-bold text-[#10b981]">{completedCount}</p>
         </div>
         <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
-          <span className="text-[10px] font-mono text-[#525866] uppercase">Active In-Flight</span>
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Running Now</span>
           <p className="text-xl font-mono font-bold text-[#e5a93c]">{runningCount}</p>
         </div>
         <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
-          <span className="text-[10px] font-mono text-[#525866] uppercase">Failed Tasks</span>
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Failed</span>
           <p className="text-xl font-mono font-bold text-[#f43f5e]">{failedCount}</p>
         </div>
       </div>
@@ -174,12 +174,12 @@ export default function ExecutionsPage() {
           <table className="w-full text-left text-xs font-mono">
             <thead className="bg-[#090a0d] border-b border-[#1f222a] text-[#525866] uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="px-4 py-2.5">Execution Hash</th>
+                <th className="px-4 py-2.5">Run ID</th>
                 <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5">Trigger Origin</th>
+                <th className="px-4 py-2.5">Triggered By</th>
                 <th className="px-4 py-2.5">Started At</th>
                 <th className="px-4 py-2.5">Duration</th>
-                <th className="px-4 py-2.5 text-right">Inspection</th>
+                <th className="px-4 py-2.5 text-right">View Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#181a20]">

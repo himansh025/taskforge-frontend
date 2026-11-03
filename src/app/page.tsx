@@ -230,7 +230,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <p className="text-xs text-[#8b949e] font-mono">
-            Tenant: <code className="text-[#ededed]">{currentWorkspace?.slug || "finance-team"}</code> &bull; ID: {workspaceId}
+            Workspace: <code className="text-[#ededed]">{currentWorkspace?.slug || "finance-team"}</code> &bull; ID: {workspaceId}
           </p>
         </div>
 
@@ -244,7 +244,7 @@ export default function DashboardPage() {
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-md bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-xs font-mono text-[#ededed] transition"
           >
             <Play className="w-3.5 h-3.5 text-[#e5a93c]" />
-            <span>Dispatch Run</span>
+            <span>Run Pipeline</span>
             <kbd className="hidden sm:inline-block ml-1">R</kbd>
           </button>
 
@@ -264,7 +264,7 @@ export default function DashboardPage() {
         {/* Total Pipelines */}
         <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
           <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
-            <span>PIPELINE ROSTER</span>
+            <span>ALL PIPELINES</span>
             <GitBranch className="w-3.5 h-3.5 text-[#525866]" />
           </div>
           <div className="text-2xl font-mono font-bold text-white tracking-tight">{workflows.length}</div>
@@ -276,20 +276,20 @@ export default function DashboardPage() {
         {/* Executions & SLA */}
         <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
           <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
-            <span>DISPATCH RUNS</span>
+            <span>TOTAL RUNS</span>
             <Activity className="w-3.5 h-3.5 text-[#525866]" />
           </div>
           <div className="text-2xl font-mono font-bold text-white tracking-tight">{executions.length}</div>
           <div className="text-[11px] font-mono text-[#10b981] flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
-            <span>{successRatio}% SLA completed</span>
+            <span>{successRatio}% Success Rate</span>
           </div>
         </div>
 
         {/* Kafka Broker Status */}
         <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
           <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
-            <span>KAFKA BUS (LIVE)</span>
+            <span>MESSAGE QUEUE</span>
             <Server className="w-3.5 h-3.5 text-[#525866]" />
           </div>
           <div className="text-2xl font-mono font-bold text-white tracking-tight">
@@ -303,7 +303,7 @@ export default function DashboardPage() {
         {/* MinIO Object Storage */}
         <div className="p-3.5 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-1">
           <div className="flex items-center justify-between text-[11px] font-mono text-[#8b949e]">
-            <span>OBJECT STORE</span>
+            <span>FILE STORAGE</span>
             <HardDrive className="w-3.5 h-3.5 text-[#525866]" />
           </div>
           <div className="text-2xl font-mono font-bold text-white tracking-tight">
@@ -367,7 +367,7 @@ export default function DashboardPage() {
           {isLoading ? (
             <div className="text-center py-16 text-[#8b949e] text-xs font-mono">
               <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[#e5a93c]" />
-              Synchronizing topology manifests...
+              Loading pipelines...
             </div>
           ) : filteredWorkflows.length === 0 ? (
             <div className="text-center py-16 bg-[#0e0f13] border border-dashed border-[#1f222a] rounded-lg p-6 space-y-3">
@@ -484,7 +484,7 @@ export default function DashboardPage() {
                             setShowRunModal(true);
                           }}
                           className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#161820] hover:bg-[#1f222c] border border-[#2b2f3a] text-xs font-mono text-[#e5a93c] transition"
-                          title="Dispatch Run"
+                          title="Run Pipeline"
                         >
                           <Play className="w-3 h-3 fill-[#e5a93c]" />
                           <span>Run</span>
@@ -513,7 +513,7 @@ export default function DashboardPage() {
           <div className="px-4 py-3 border-b border-[#1f222a] flex items-center justify-between text-xs font-mono text-[#8b949e]">
             <div className="flex items-center gap-2">
               <Activity className="w-3.5 h-3.5 text-[#e5a93c]" />
-              <span className="font-semibold text-white">Execution Audit Log</span>
+              <span className="font-semibold text-white">Run History</span>
             </div>
             <span>{executions.length} runs recorded</span>
           </div>
@@ -522,7 +522,7 @@ export default function DashboardPage() {
             <table className="w-full text-left text-xs font-mono">
               <thead className="bg-[#090a0d] border-b border-[#1f222a] text-[#525866] uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="px-4 py-2.5">Execution Hash</th>
+                  <th className="px-4 py-2.5">Run ID</th>
                   <th className="px-4 py-2.5">Status</th>
                   <th className="px-4 py-2.5">Trigger</th>
                   <th className="px-4 py-2.5">Started At</th>
@@ -793,12 +793,12 @@ export default function DashboardPage() {
                   {isRunningPipeline ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Dispatching...</span>
+                      <span>Starting Run...</span>
                     </>
                   ) : (
                     <>
                       <Play className="w-3.5 h-3.5 fill-black" />
-                      <span>Dispatch to Kafka</span>
+                      <span>Start Execution</span>
                     </>
                   )}
                 </button>

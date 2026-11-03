@@ -331,21 +331,21 @@ export default function ExecutionViewPage() {
       {/* Telemetry Summary Counters */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
-          <span className="text-[10px] font-mono text-[#525866] uppercase">Nodes Satisfied</span>
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Steps Completed</span>
           <p className="text-xl font-mono font-bold text-white">
             {tasks.filter((t) => t.status === "COMPLETED").length} / {tasks.length || 5}
           </p>
         </div>
 
         <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
-          <span className="text-[10px] font-mono text-[#525866] uppercase">Execution Phase</span>
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Current Status</span>
           <p className="text-base font-mono font-bold text-[#e5a93c] truncate">
-            {isCompleted ? "All Tasks Done" : isFailed ? "Halted on Error" : "Kafka Dispatched"}
+            {isCompleted ? "All Steps Finished" : isFailed ? "Halted on Error" : "Queued in Kafka"}
           </p>
         </div>
 
         <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
-          <span className="text-[10px] font-mono text-[#525866] uppercase">Live Stream Channel</span>
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Live Event Channel</span>
           <div className="flex items-center gap-1.5 pt-1">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
             <span className="text-xs font-mono text-[#ededed]">Redis Pub/Sub</span>
@@ -353,7 +353,7 @@ export default function ExecutionViewPage() {
         </div>
 
         <div className="p-3 rounded-lg bg-[#0e0f13] border border-[#1f222a] space-y-0.5">
-          <span className="text-[10px] font-mono text-[#525866] uppercase">Artifact Engine</span>
+          <span className="text-[10px] font-mono text-[#525866] uppercase">Generated Files</span>
           <p className="text-sm font-mono text-[#8b949e] truncate pt-0.5">
             MinIO S3 Connected
           </p>
@@ -366,10 +366,10 @@ export default function ExecutionViewPage() {
         <div className="lg:col-span-7 bg-[#0e0f13] border border-[#1f222a] rounded-lg p-4 space-y-3 shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
-              DAG Step Sequence Timeline
+              Pipeline Steps
             </span>
             <span className="text-[10px] font-mono text-[#525866]">
-              Click any node to inspect payload
+              Click any step to inspect data
             </span>
           </div>
 
@@ -478,7 +478,7 @@ export default function ExecutionViewPage() {
           <div className="bg-[#0e0f13] border border-[#1f222a] rounded-lg p-3 space-y-2 shadow-sm">
             <div className="flex items-center justify-between pb-2 border-b border-[#1f222a]">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
-                Payload Inspector: {selectedStep?.nodeId || "Node"}
+                Data Inspector: {selectedStep?.nodeId || "Step"}
               </span>
               <div className="flex items-center gap-1 bg-[#13151b] p-0.5 rounded border border-[#1f222a] text-[10px] font-mono">
                 <button
@@ -527,7 +527,7 @@ export default function ExecutionViewPage() {
               <div className="flex items-center gap-1.5">
                 <Terminal className="w-3.5 h-3.5 text-[#525866]" />
                 <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8b949e]">
-                  Redis Pub/Sub Stream
+                  Live Event Log
                 </span>
               </div>
               <span className="text-[10px] font-mono text-[#10b981] bg-[#0d1f14] border border-[#163821] px-1.5 py-0.5 rounded">
@@ -546,7 +546,7 @@ export default function ExecutionViewPage() {
               ))}
               {isCompleted && (
                 <p className="text-[#10b981] font-semibold">
-                  [ORCH] All DAG tasks satisfied. Execution finished successfully.
+                  [ORCH] All pipeline steps completed successfully.
                 </p>
               )}
               <div ref={terminalEndRef} />

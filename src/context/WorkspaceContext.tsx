@@ -54,9 +54,11 @@ interface WorkspaceContextType {
   setWorkflowCount: (count: number) => void;
   currentUser: UserProfile | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   token: string | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (displayName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  demoLogin: () => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshWorkspaces: () => Promise<void>;
 }
@@ -74,6 +76,7 @@ const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefin
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
@@ -92,14 +95,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         try {
           setCurrentUser(JSON.parse(savedUserStr));
         } catch (e) {}
-      } else {
-        // Default operator session if none exists
-        setCurrentUser({
-          name: "Himanshu Singh",
-          email: "himanshu@taskforge.dev",
-          role: "Workspace Owner",
-        });
       }
+      setIsInitialized(true);
     }
   }, []);
 
@@ -261,6 +258,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const demoLogin = async () => {
+    return login("himanshu@taskforge.dev", "password123");
+  };
+
   const logout = () => {
     setToken(null);
     setCurrentUser(null);
@@ -285,9 +286,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setWorkflowCount,
         currentUser,
         isAuthenticated: !!token || !!currentUser,
+        isInitialized,
         token,
         login,
         register,
+        demoLogin,
         logout,
         refreshWorkspaces: fetchWorkspaces,
       }}

@@ -26,6 +26,7 @@ import {
   Sliders
 } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import LandingPage from "@/components/LandingPage";
 
 interface WorkflowItem {
   id: string;
@@ -49,7 +50,7 @@ interface ExecutionItem {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { currentWorkspace, setWorkflowCount, telemetry } = useWorkspace();
+  const { currentWorkspace, setWorkflowCount, telemetry, isAuthenticated, isInitialized } = useWorkspace();
   const workspaceId = currentWorkspace?.id || "e7c051b5-e677-4724-a98a-4179cd14d0cf";
 
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
@@ -215,6 +216,10 @@ export default function DashboardPage() {
 
   const completedExecs = executions.filter((e) => e.status === "COMPLETED").length;
   const successRatio = executions.length > 0 ? Math.round((completedExecs / executions.length) * 100) : 100;
+
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
 
   return (
     <div className="space-y-6">

@@ -3,14 +3,18 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 export default function ConsoleShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { isAuthenticated, isInitialized } = useWorkspace();
   const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isLanding = pathname === "/" && !isAuthenticated;
 
-  if (isAuthPage) {
+  // On auth pages or landing page (unauthenticated root): full-screen layout without sidebar
+  if (isAuthPage || isLanding) {
     return (
-      <main className="min-h-screen w-full flex-1 flex items-center justify-center bg-[#090a0d] p-4">
+      <main className="min-h-screen w-full flex-1 flex flex-col bg-[#08090c]">
         {children}
       </main>
     );
